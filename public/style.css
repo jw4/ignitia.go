@@ -1,0 +1,63 @@
+body {
+    margin: 1em;
+    font-family: Helvetica, serif;
+    color: #333;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-variant: all-small-caps;
+    margin: 0.1em 1em 0 0;
+}
+
+h4, h5, h6 {
+    display: inline-flex;
+    margin: 0;
+}
+
+.report {
+    width: 80%;
+    margin: 5em auto;
+}
+
+section[data-num-courses-incomplete="0"].student {
+    display: none;
+}
+
+.course {
+    margin: 1em;
+    padding: 1em;
+}
+
+section[data-num-assignments="0"].course {
+    display: none;
+}
+
+section[data-num-assignments-incomplete="0"].course {
+    display: none;
+}
+
+.assignment {
+    padding: 0.25em 1em;
+    background: #efe;
+    border-top: 1px dotted #666;
+}
+
+.assignment.complete, .assignment.future, .assignment.past {
+    display: none;
+}
+
+.assignment.due {
+    background: #fff;
+}
+
+.assignment.overdue {
+    background: #fdd;
+}
+
+dl dt {
+    display: inline-flex;
+}
+
+dl dd {
+    display: inline-flex;
+}
