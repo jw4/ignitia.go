@@ -14,10 +14,12 @@ import (
 var version = "dev"
 
 func main() {
-	base := os.Getenv("IGNITIA_BASE_URL")
-	username := os.Getenv("IGNITIA_USERNAME")
-	password := os.Getenv("IGNITIA_PASSWORD")
-	assets := os.Getenv("PUBLIC_ASSETS")
+	opts := []ignitia.Option{
+		ignitia.BaseURL(os.Getenv("IGNITIA_BASE_URL")),
+		ignitia.Credentials(os.Getenv("IGNITIA_USERNAME"), os.Getenv("IGNITIA_PASSWORD")),
+		ignitia.Assets(os.Getenv("PUBLIC_ASSETS")),
+		ignitia.Templates(os.Getenv("TEMPLATES")),
+	}
 
 	action := "help"
 	if len(os.Args) > 1 {
@@ -26,15 +28,14 @@ func main() {
 
 	switch action {
 	case "serve":
-		doServe(ignitia.NewSession(base, username, password, assets))
+		doServe(ignitia.NewSession(opts...))
 	case "html":
-		doHTML(ignitia.NewSession(base, username, password, assets))
+		doHTML(ignitia.NewSession(opts...))
 	case "print":
-		doPrint(ignitia.NewSession(base, username, password, assets))
+		doPrint(ignitia.NewSession(opts...))
 	default:
 		doHelp()
 	}
-
 }
 
 func doHelp() { fmt.Fprint(os.Stderr, helpText) }

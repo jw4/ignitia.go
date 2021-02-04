@@ -38,12 +38,14 @@ COPY    --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY    --from=builder /ignitia /ignitia
 
 COPY    public /var/html/
+COPY    templates /var/templates/
 
-ENV     IGNITIA_BASE_URL="https://ignitiumwa.ignitiaschools.com" \
+ENV     BIND=":80" \
+        IGNITIA_BASE_URL="https://ignitiumwa.ignitiaschools.com" \
         IGNITIA_USERNAME="" \
         IGNITIA_PASSWORD="" \
-        BIND=":80" \
         PUBLIC_ASSETS="/var/html/" \
+        TEMPLATES="/var/templates/" \
         TZ="America/Phoenix"
 
 EXPOSE  80/tcp

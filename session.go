@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -15,23 +17,38 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
+// Option represents a function that can modify a session.
+type Option func(*Session)
+
+// BaseURL sets the base ignitia URL.
+func BaseURL(u string) Option { return func(s *Session) { s.baseURL = u } }
+
+// Credentials sets the ignitia login credentials.
+func Credentials(username, password string) Option {
+	return func(s *Session) { s.username, s.password = username, password }
+}
+
+// Assets configures the public assets root folder.
+func Assets(path string) Option { return func(s *Session) { s.assets = path } }
+
+// Templates configures the template files root folder.
+func Templates(path string) Option { return func(s *Session) { s.templates = path } }
+
 // NewSession returns a Session.
-func NewSession(baseURL, username, password, assets string) *Session {
+func NewSession(opts ...Option) *Session {
 	ses := &Session{
 		DebugWriter: os.Stdout,
+		assets:      "public",
+		templates:   "templates",
+	}
 
-		baseURL:  baseURL,
-		username: username,
-		password: password,
-
-		reportTmpl: template.Must(template.New("report").Funcs(htmlHelpers).Parse(reportTemplate)),
-		headerTmpl: template.Must(template.New("header").Funcs(htmlHelpers).Parse(headerTemplate)),
-		footerTmpl: template.Must(template.New("footer").Funcs(htmlHelpers).Parse(footerTemplate)),
+	for _, opt := range opts {
+		opt(ses)
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir(assets))))
-	mux.HandleFunc("/", ses.renderReport)
+	mux.Handle("/", http.FileServer(http.Dir(ses.assets)))
+	mux.HandleFunc("/report", ses.renderReport)
 	ses.mux = mux
 
 	return ses
@@ -43,19 +60,17 @@ type Session struct {
 
 	DebugWriter io.Writer
 
-	err      error
-	baseURL  string
-	username string
-	password string
+	Error     error
+	baseURL   string
+	username  string
+	password  string
+	assets    string
+	templates string
 
 	collector     *colly.Collector
 	lastRefreshed time.Time
 
 	mux http.Handler
-
-	reportTmpl *template.Template
-	headerTmpl *template.Template
-	footerTmpl *template.Template
 }
 
 func (s *Session) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -69,12 +84,12 @@ func (s *Session) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 // Refresh updates the cached data.
 func (s *Session) Refresh() error {
-	if s.err != nil {
+	if s.Error != nil {
 		s.collector = nil
 	}
 
 	if s.collector == nil {
-		s.err = s.init()
+		s.Error = s.init()
 	}
 
 	if len(s.Students) == 0 || s.lastRefreshed.Before(time.Now().Add(-10*time.Minute)) {
@@ -104,27 +119,30 @@ func (s *Session) Refresh() error {
 		s.lastRefreshed = time.Now()
 	}
 
-	return s.err
+	return s.Error
 }
 
 // RenderHTML writes the report page out.
-func (s *Session) RenderHTML(out io.Writer) error { return s.reportTmpl.Execute(out, s) }
+func (s *Session) RenderHTML(out io.Writer) error {
+	pat := filepath.Join(s.templates, "*.gohtml")
+	tmpl, err := template.New("report").Funcs(htmlHelpers).ParseGlob(pat)
+	if err != nil {
+		return fmt.Errorf("parsing %q: %v", pat, err)
+	}
+
+	if err := tmpl.Execute(out, s); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (s *Session) renderReport(writer http.ResponseWriter, _ *http.Request) {
 	if err := s.Refresh(); err != nil {
 		s.renderError(writer, err)
-		return
 	}
 
-	if err := s.headerTmpl.Execute(writer, s); err != nil {
-		s.renderError(writer, err)
-		return
-	}
-	if err := s.reportTmpl.Execute(writer, s); err != nil {
-		s.renderError(writer, err)
-		return
-	}
-	if err := s.footerTmpl.Execute(writer, s); err != nil {
+	if err := s.RenderHTML(writer); err != nil {
 		s.renderError(writer, err)
 		return
 	}
@@ -145,8 +163,13 @@ func (s *Session) init() error {
 	s.collector.OnResponse(s.logResponse)
 
 	s.collector.OnHTML("#loginForm", s.login)
+	s.collector.OnHTML(".login-error", s.loginError)
 
-	return s.collector.Visit(s.baseURL)
+	if err := s.collector.Visit(s.baseURL); err != nil {
+		return err
+	}
+
+	return s.Error
 }
 
 func (s *Session) login(element *colly.HTMLElement) {
@@ -156,18 +179,26 @@ func (s *Session) login(element *colly.HTMLElement) {
 	}
 
 	if err := element.Request.Post(element.Attr("action"), data); err != nil {
-		s.err = err
+		s.Error = err
 	}
 }
 
+func (s *Session) loginError(element *colly.HTMLElement) {
+	s.Error = fmt.Errorf("Error logging in: %s", element.Text)
+}
+
 func (s *Session) loadStudentsFromJSON(response *colly.Response) {
-	if s.err != nil {
+	if s.Error != nil {
+		return
+	}
+
+	if !(assertOK(response) && assertJSON(response)) {
 		return
 	}
 
 	var students []*Student
 	if err := json.NewDecoder(bytes.NewReader(response.Body)).Decode(&students); err != nil {
-		s.err = err
+		s.Error = err
 		return
 	}
 
@@ -177,13 +208,17 @@ func (s *Session) loadStudentsFromJSON(response *colly.Response) {
 
 func (s *Session) loadCoursesFromJSON(student *Student) func(*colly.Response) {
 	return func(response *colly.Response) {
-		if s.err != nil {
+		if s.Error != nil {
+			return
+		}
+
+		if !(assertOK(response) && assertJSON(response)) {
 			return
 		}
 
 		var courses []*Course
 		if err := json.NewDecoder(bytes.NewReader(response.Body)).Decode(&courses); err != nil {
-			s.err = err
+			s.Error = err
 			return
 		}
 
@@ -194,13 +229,17 @@ func (s *Session) loadCoursesFromJSON(student *Student) func(*colly.Response) {
 
 func (s *Session) loadAssignmentsFromJSON(course *Course) func(*colly.Response) {
 	return func(response *colly.Response) {
-		if s.err != nil {
+		if s.Error != nil {
+			return
+		}
+
+		if !(assertOK(response) && assertJSON(response)) {
 			return
 		}
 
 		var helper assignmentResponseHelper
 		if err := json.NewDecoder(bytes.NewReader(response.Body)).Decode(&helper); err != nil {
-			s.err = err
+			s.Error = err
 			return
 		}
 
@@ -209,7 +248,7 @@ func (s *Session) loadAssignmentsFromJSON(course *Course) func(*colly.Response) 
 }
 
 func (s *Session) getAndUpdate(link string, loader func(*colly.Response)) {
-	if s.err != nil {
+	if s.Error != nil {
 		return
 	}
 
@@ -221,12 +260,12 @@ func (s *Session) getAndUpdate(link string, loader func(*colly.Response)) {
 	clone.OnResponse(loader)
 
 	if err := clone.Visit(link); err != nil {
-		s.err = err
+		s.Error = err
 	}
 }
 
 func (s *Session) postAndUpdate(link string, data map[string]string, loader func(*colly.Response)) {
-	if s.err != nil {
+	if s.Error != nil {
 		return
 	}
 
@@ -238,7 +277,7 @@ func (s *Session) postAndUpdate(link string, data map[string]string, loader func
 	clone.OnResponse(loader)
 
 	if err := clone.Post(link, data); err != nil {
-		s.err = err
+		s.Error = err
 	}
 }
 
@@ -260,6 +299,29 @@ func (s *Session) logResponse(response *colly.Response) {
 	}
 }
 
+func assertOK(r *colly.Response) bool {
+	if r.StatusCode >= http.StatusBadRequest {
+		fmt.Fprintf(os.Stderr, "Unexpected error: %d (%v)\n---\n%s\n---\n", r.StatusCode, r.Headers, string(r.Body))
+		return false
+	}
+	return true
+}
+
+func assertJSON(r *colly.Response) bool {
+	mt, _, err := mime.ParseMediaType(r.Headers.Get("content-type"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Parsing Media Type %q: %v\n", r.Headers.Get("content-type"), err)
+		return false
+	}
+
+	if mt != "application/json" {
+		fmt.Fprintf(os.Stderr, "Media Type %q\n---\n%s\n---\n", mt, string(r.Body))
+		return false
+	}
+
+	return true
+}
+
 func ts() int64 { return time.Now().Unix() }
 
 var htmlHelpers = template.FuncMap{
@@ -267,61 +329,3 @@ var htmlHelpers = template.FuncMap{
 	"tolower":  strings.ToLower,
 	"timenow":  func() string { return time.Now().Format(time.RFC3339) },
 }
-
-const (
-	headerTemplate = `<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ignitia Report {{ range .Students }}| {{ .DisplayName | htmlsafe }}{{ end }}</title>
-  <link href="/static/style.css" rel="stylesheet" type="text/css">
-  <script async src="/static/page.js" type="text/javascript"></script>
-</head>
-<body>
-`
-	footerTemplate = `
-  <footer>
-    <p>As of {{ timenow }}</p>
-  </footer>
-</body>
-</html>
-`
-	reportTemplate = `
-<div class="report" data-num-students="{{ len .Students }}">
-  {{- range .Students }}{{ $student_id := .ID }}
-  <section id="student_{{ $student_id }}" class="student" data-num-courses="{{ len .Courses }}" data-num-courses-incomplete="{{ .IncompleteCourses }}">
-    <h2>{{ .DisplayName | htmlsafe }}</h2>
-    {{- range .Courses }}{{ $course_id := .ID }}
-    <section id="course_{{ $student_id }}_{{ $course_id }}" class="course" data-num-assignments="{{ len .Assignments }}" data-num-assignments-incomplete="{{ .IncompleteAssignments }}">
-      <h3>{{ .Title }}</h3>
-      {{- range .Assignments }}{{ $assignment_id := .ID }}
-        <section id="assignment_{{ $student_id }}_{{ $course_id }}_{{ $assignment_id }}" class="assignment {{ if .IsIncomplete }}in{{ end }}complete{{ if .IsDue }} due{{ end }}{{ if .IsOverdue }} overdue{{ end }}{{ if .IsFuture }} future{{ end }}{{ if .IsPast }} past{{ end }} type_{{ .Type | tolower }}">
-          <h4>Unit {{ .Unit }}</h4>
-          <h4>{{ .Title }}</h4>
-          <h5>{{ .Type }}</h5>
-          <h5>{{ .Status }}</h5>
-          <dl>
-            <dt>Due</dt>
-            <dd>{{ .Due }}</dd>
-            {{- if ne .Completed "" }}
-
-            <dt>Completed</dt>
-            <dd>{{ .Completed }}</dd>
-            {{- end }}
-            <dt>Progress</dt>
-            <dd>{{ .Progress }}%</dd>
-            {{- if ne .Score 0 }}
-
-            <dt>Score</dt>
-            <dd>{{ .Score }}%</dd>
-            {{- end }}
-          </dl>
-        </section>
-      {{- end }}
-    </section>
-    {{- end }}
-  </section>
-  {{- end }}
-</div>
-`
-)
