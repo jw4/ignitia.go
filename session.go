@@ -15,6 +15,7 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
+// NewSession returns a Session.
 func NewSession(baseURL, username, password, assets string) *Session {
 	ses := &Session{
 		DebugWriter: os.Stdout,
@@ -36,6 +37,7 @@ func NewSession(baseURL, username, password, assets string) *Session {
 	return ses
 }
 
+// Session wraps a web session to ignitia.
 type Session struct {
 	Students []*Student
 
@@ -65,7 +67,12 @@ func (s *Session) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 }
 
+// Refresh updates the cached data.
 func (s *Session) Refresh() error {
+	if s.err != nil {
+		s.collector = nil
+	}
+
 	if s.collector == nil {
 		s.err = s.init()
 	}
@@ -100,6 +107,7 @@ func (s *Session) Refresh() error {
 	return s.err
 }
 
+// RenderHTML writes the report page out.
 func (s *Session) RenderHTML(out io.Writer) error { return s.reportTmpl.Execute(out, s) }
 
 func (s *Session) renderReport(writer http.ResponseWriter, _ *http.Request) {
@@ -244,6 +252,12 @@ func (s *Session) logResponse(response *colly.Response) {
 		response.StatusCode,
 		response.Trace.FirstByteDuration,
 		response.Trace.ConnectDuration)
+	if response.StatusCode >= http.StatusBadRequest {
+		fmt.Fprintf(s.DebugWriter, "%d %d\n---\n%s\n---\n",
+			response.Request.ID,
+			response.StatusCode,
+			string(response.Body))
+	}
 }
 
 func ts() int64 { return time.Now().Unix() }
