@@ -114,8 +114,20 @@ func (a *Assignment) IsIncomplete() bool {
 	}
 }
 
-func (a *Assignment) IsFuture() bool { return a.DueDate().After(time.Now().Add(3 * 24 * time.Hour)) }
-func (a *Assignment) IsPast() bool   { return a.DueDate().Before(time.Now().Add(-3 * 24 * time.Hour)) }
+func (a *Assignment) IsCurrent() bool {
+	if a.DueDate().After(thisWeek()) && a.DueDate().Before(nextWeek()) {
+		return true
+	}
+
+	if a.CompleteDate().After(thisWeek()) && a.CompleteDate().Before(nextWeek()) {
+		return true
+	}
+
+  return false
+}
+
+func (a *Assignment) IsFuture() bool { return a.DueDate().After(tomorrow()) }
+func (a *Assignment) IsPast() bool   { return a.DueDate().Before(today()) }
 func (a *Assignment) IsDue() bool {
 	if !a.IsIncomplete() {
 		return false
@@ -125,7 +137,7 @@ func (a *Assignment) IsDue() bool {
 		return false
 	}
 
-	if a.DueDate().Before(time.Now().Add(24 * time.Hour)) {
+	if a.DueDate().Before(tomorrow()) {
 		return true
 	}
 
@@ -137,11 +149,37 @@ func (a *Assignment) IsOverdue() bool {
 		return false
 	}
 
-	if a.DueDate().Before(time.Now()) {
+	if a.DueDate().Before(today()) {
 		return true
 	}
 
 	return false
+}
+
+func today() time.Time {
+	y, m, d := time.Now().Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+}
+
+func tomorrow() time.Time {
+	return today().Add(24 * time.Hour)
+}
+
+func yesterday() time.Time {
+	return today().Add(-24 * time.Hour)
+}
+
+func thisWeek() time.Time {
+	cur := today()
+	offset := int(time.Monday - cur.Weekday())
+	if offset > 0 {
+		offset = -6
+	}
+	return cur.AddDate(0, 0, offset)
+}
+
+func nextWeek() time.Time {
+	return thisWeek().AddDate(0, 0, 7)
 }
 
 func parseDate(s string) time.Time {

@@ -48,6 +48,7 @@ func NewSession(opts ...Option) *Session {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.Dir(ses.assets)))
+	mux.HandleFunc("/index", ses.renderIndex)
 	mux.HandleFunc("/report", ses.renderReport)
 	ses.mux = mux
 
@@ -135,6 +136,20 @@ func (s *Session) RenderHTML(out io.Writer) error {
 	}
 
 	return nil
+}
+
+func (s *Session) renderIndex(writer http.ResponseWriter, _ *http.Request) {
+	pat := filepath.Join(s.templates, "*.gohtml")
+	tmpl, err := template.New("index").Funcs(htmlHelpers).ParseGlob(pat)
+	if err != nil {
+		s.renderError(writer, fmt.Errorf("parsing %q: %v", pat, err))
+		return
+	}
+
+	if err := tmpl.Execute(writer, s); err != nil {
+		s.renderError(writer, fmt.Errorf("executing template: %v", err))
+		return
+	}
 }
 
 func (s *Session) renderReport(writer http.ResponseWriter, _ *http.Request) {

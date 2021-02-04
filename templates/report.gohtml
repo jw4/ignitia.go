@@ -7,7 +7,7 @@
         <section id="course_{{ $student_id }}_{{ $course_id }}" class="course" data-num-assignments="{{ len .Assignments }}" data-num-assignments-incomplete="{{ .IncompleteAssignments }}">
             <h3>{{ .Title }}</h3>
             {{- range .Assignments }}{{ $assignment_id := .ID }}
-            <section id="assignment_{{ $student_id }}_{{ $course_id }}_{{ $assignment_id }}" class="assignment {{ if .IsIncomplete }}in{{ end }}complete{{ if .IsDue }} due{{ end }}{{ if .IsOverdue }} overdue{{ end }}{{ if .IsFuture }} future{{ end }}{{ if .IsPast }} past{{ end }} type_{{ .Type | tolower }}">
+            <section id="assignment_{{ $student_id }}_{{ $course_id }}_{{ $assignment_id }}" class="assignment {{ if .IsIncomplete }}in{{ end }}complete{{ if .IsDue }} due{{ end }}{{ if .IsOverdue }} overdue{{ end }}{{ if .IsCurrent }} current{{ end }}{{ if .IsFuture }} future{{ end }}{{ if .IsPast }} past{{ end }} {{ .Type | tolower }}">
                 <h4>Unit {{ .Unit }}</h4>
                 <h4>{{ .Title }}</h4>
                 <h5>{{ .Type }}</h5>

@@ -4,18 +4,30 @@ body {
     color: #333;
 }
 
-h1, h2, h3, h4, h5, h6 {
+#main {
+    width: 90%;
+    margin: 5em auto;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-variant: all-small-caps;
     margin: 0.1em 1em 0 0;
 }
 
-h4, h5, h6 {
+h4,
+h5,
+h6 {
     display: inline-flex;
     margin: 0;
 }
 
 .report {
-    width: 80%;
+    width: 90%;
     margin: 5em auto;
 }
 
@@ -42,22 +54,44 @@ section[data-num-assignments-incomplete="0"].course {
     border-top: 1px dotted #666;
 }
 
-.assignment.complete, .assignment.future, .assignment.past {
+.assignment.complete,
+.assignment.future,
+.assignment.past {
     display: none;
 }
 
-.assignment.due {
+section.assignment.current {
+    display: block;
+}
+
+section.assignment.due {
+    display: block;
     background: #fff;
 }
 
-.assignment.overdue {
+section.assignment.overdue {
+    display: block;
     background: #fdd;
 }
 
 dl dt {
     display: inline-flex;
+    color: #999;
+    font-variant: all-small-caps;
 }
 
 dl dd {
     display: inline-flex;
+    margin: 0 1em 0 0;
+}
+
+.overdue dl dt:first-child+dd {
+    color: #f33;
+}
+
+.timestamp {
+    color: #ddd;
+    font-variant: all-small-caps;
+    width: 90%;
+    margin: 5em auto;
 }
