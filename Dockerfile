@@ -10,13 +10,17 @@ RUN     apt-get -y install ca-certificates && update-ca-certificates
 WORKDIR /src
 COPY    . . 
 
-ARG     GOPROXY
+ARG     GOPROXY \
+        BUILD_VERSION
+
 ENV     CGO_ENABLED=0 \
-        GOPROXY=${GOPROXY}
+        GOPROXY=${GOPROXY} \
+        BUILD_VERSION=${BUILD_VERSION}
 
 RUN     go build \
            -tags=netgo \
            -ldflags '-s -w -extldflags "-static"' \
+           -ldflags "-X main.version=${BUILD_VERSION}" \
            -o /ignitia ./cmd/ignitia
 
 #
@@ -45,4 +49,3 @@ ENV     IGNITIA_BASE_URL="https://ignitiumwa.ignitiaschools.com" \
 EXPOSE  80/tcp
 
 ENTRYPOINT ["/ignitia", "serve"]
-

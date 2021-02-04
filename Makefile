@@ -8,27 +8,32 @@ endif
 .PHONY: all
 all: image
 
-.PHONY: local
-local:
-	docker build \
-		--build-arg GOPROXY \
-		-t $(IMAGE):$(BUILD_VERSION) \
-		-t $(IMAGE):latest \
-		.
+.PHONY: run
+run:
+	go run \
+		-tags=netgo \
+		-ldflags '-s -w -extldflags "-static"' \
+		-ldflags "-X main.version=$(BUILD_VERSION)" \
+		./cmd/ignitia serve
 
 .PHONY: image
 image:
-	docker buildx build \
+	docker build \
 		--build-arg GOPROXY \
+		--build-arg BUILD_VERSION=$(BUILD_VERSION) \
 		-t $(IMAGE):$(BUILD_VERSION) \
 		-t $(IMAGE):latest \
-		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		.
 
+.PHONY: run-image
+run-image: image
+	docker run --rm -it -p 8989:80 $(IMAGE):$(BUILD_VERSION)
+
 .PHONY: push
-push: image
+push:
 	docker buildx build \
 		--build-arg GOPROXY \
+		--build-arg BUILD_VERSION=$(BUILD_VERSION) \
 		-t $(IMAGE):$(BUILD_VERSION) \
 		-t $(IMAGE):latest \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \

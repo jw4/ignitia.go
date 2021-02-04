@@ -11,6 +11,8 @@ import (
 	"github.com/jw4/ignitia.go"
 )
 
+var version = "dev"
+
 func main() {
 	base := os.Getenv("IGNITIA_BASE_URL")
 	username := os.Getenv("IGNITIA_USERNAME")
@@ -39,6 +41,7 @@ func doHelp() { fmt.Fprint(os.Stderr, helpText) }
 
 func doServe(session *ignitia.Session) {
 	bind := os.Getenv("BIND")
+	fmt.Fprintf(os.Stderr, "Version: %s\n", version)
 	fmt.Fprintf(os.Stderr, "Serving on %s\n", bind)
 	if err := http.ListenAndServe(bind, session); err != nil {
 		fmt.Fprintf(os.Stderr, "error serving: %v\n", err)
