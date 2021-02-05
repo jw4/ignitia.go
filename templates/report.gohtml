@@ -1,4 +1,7 @@
-{{ define "report" }} {{ template "header" . }}
+{{ define "assignment_classes" }}assignment {{ if .IsIncomplete }}in{{ end }}complete{{ if .IsDue }} due{{ end }}{{ if .IsOverdue }} overdue{{ end }}{{ if .IsCurrent }} current{{ end }}{{ if .IsFuture }} future{{ end }}{{ if .IsPast }} past{{ end }} {{ .Type | tolower }} {{ .Status | tolower }}{{ end }} 
+
+{{ define "report" }}
+{{ template "header" . }}
 <div class="report" data-num-students="{{ len .Students }}">
     {{- range .Students }}{{ $student_id := .ID }}
     <section id="student_{{ $student_id }}" class="student" data-num-courses="{{ len .Courses }}" data-num-courses-incomplete="{{ .IncompleteCourses }}">
@@ -7,24 +10,24 @@
         <section id="course_{{ $student_id }}_{{ $course_id }}" class="course" data-num-assignments="{{ len .Assignments }}" data-num-assignments-incomplete="{{ .IncompleteAssignments }}">
             <h3>{{ .Title }}</h3>
             {{- range .Assignments }}{{ $assignment_id := .ID }}
-            <section id="assignment_{{ $student_id }}_{{ $course_id }}_{{ $assignment_id }}" class="assignment {{ if .IsIncomplete }}in{{ end }}complete{{ if .IsDue }} due{{ end }}{{ if .IsOverdue }} overdue{{ end }}{{ if .IsCurrent }} current{{ end }}{{ if .IsFuture }} future{{ end }}{{ if .IsPast }} past{{ end }} {{ .Type | tolower }}">
-                <h4>Unit {{ .Unit }}</h4>
-                <h4>{{ .Title }}</h4>
-                <h5>{{ .Type }}</h5>
-                <h5>{{ .Status }}</h5>
-                <dl>
-                    <dt>Due</dt>
+            <section id="assignment_{{ $student_id }}_{{ $course_id }}_{{ $assignment_id }}" class="{{ template `assignment_classes` .}}">
+                <h4 class="unit">Unit {{ .Unit }}</h4>
+                <h4 class="title">{{ .Title }}</h4>
+                <h5 class="type">{{ .Type }}</h5>
+                <h5 class="status">{{ .Status }}</h5>
+                <dl class="details">
+                    <dt class="label due">Due</dt>
                     <dd>{{ .Due }}</dd>
                     {{- if ne .Completed "" }}
 
-                    <dt>Completed</dt>
+                    <dt class="label completed">Completed</dt>
                     <dd>{{ .Completed }}</dd>
                     {{- end }}
-                    <dt>Progress</dt>
+                    <dt class="label progress">Progress</dt>
                     <dd>{{ .Progress }}%</dd>
                     {{- if ne .Score 0 }}
 
-                    <dt>Score</dt>
+                    <dt class="label score">Score</dt>
                     <dd>{{ .Score }}%</dd>
                     {{- end }}
                 </dl>
@@ -35,4 +38,6 @@
     </section>
     {{- end }}
 </div>
-{{ template "footer" . }} {{ end }} {{/* vi:se ft=html: */}}
+{{ template "footer" . }}
+{{ end }}
+{{/* vi:se ft=html: */}}

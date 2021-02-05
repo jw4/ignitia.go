@@ -1,7 +1,9 @@
 body {
     margin: 1em;
-    font-family: Helvetica, serif;
+    font-family: Helvetica, sans-serif;
+    font-size: larger;
     color: #333;
+    background: #FFF;
 }
 
 #main {
@@ -50,7 +52,7 @@ section[data-num-assignments-incomplete="0"].course {
 
 .assignment {
     padding: 0.25em 1em;
-    background: #efe;
+    background: rgba(238, 255, 238, 0.25);
     border-top: 1px dotted #666;
 }
 
@@ -66,12 +68,12 @@ section.assignment.current {
 
 section.assignment.due {
     display: block;
-    background: #fff;
+    background: rgba(238, 238, 238, 0.1);
 }
 
 section.assignment.overdue {
     display: block;
-    background: #fdd;
+    background: rgba(255, 238, 238, 0.25);
 }
 
 dl dt {
@@ -83,6 +85,7 @@ dl dt {
 dl dd {
     display: inline-flex;
     margin: 0 1em 0 0;
+    font-size: small;
 }
 
 .overdue dl dt:first-child+dd {
@@ -94,4 +97,25 @@ dl dd {
     font-variant: all-small-caps;
     width: 90%;
     margin: 5em auto;
+}
+
+.unit {
+    font-weight: bold;
+}
+
+.title {
+    color: #000;
+}
+
+.type {
+    text-decoration: underline;
+}
+
+.status {
+    color: #666;
+    font-size: small;
+}
+
+.details {
+    margin: 0.2em 0 0.5em;
 }
