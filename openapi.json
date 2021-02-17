@@ -1,0 +1,270 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Ignitia API",
+        "version": "0.0.1",
+        "contact": {
+            "name": "John Weldon",
+            "email": "john@tempusbreve.com",
+            "url": "https://tempusbreve.com"
+        }
+    },
+    "tags": [],
+    "components": {
+        "parameters": {
+            "_": {
+                "name": "_",
+                "required": true,
+                "description": "timestamp or unique number value",
+                "in": "query",
+                "schema": {
+                    "type": "integer"
+                }
+            },
+            "student_id": {
+                "name": "student_id",
+                "required": true,
+                "description": "id of student",
+                "in": "query",
+                "schema": {
+                    "type": "integer"
+                }
+            },
+            "enrollment_id": {
+                "name": "enrollment_id",
+                "required": true,
+                "description": "id of course/enrollment",
+                "in": "query",
+                "schema": {
+                    "type": "integer"
+                }
+            },
+            "auth_cookie": {
+                "name": "f5avrbbbbbbbbbbbbbbbb",
+                "required": true,
+                "description": "Authentication Cookie",
+                "in": "cookie",
+                "schema": {
+                    "type": "string"
+                }
+            }
+        },
+        "requestBodies": {
+            "assignment_by_course": {
+                "description": "Parameters",
+                "content": {
+                    "application/x-www-form-urlencoded": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "student_id": {
+                                    "type": "integer"
+                                },
+                                "enrollment_id": {
+                                    "type": "integer"
+                                },
+                                "rows": {
+                                    "type": "integer",
+                                    "default": 1000
+                                },
+                                "page": {
+                                    "type": "integer",
+                                    "default": 1
+                                },
+                                "nd": {
+                                    "type": "integer"
+                                },
+                                "sord": {
+                                    "type": "string",
+                                    "enum": [
+                                        "asc",
+                                        "desc"
+                                    ],
+                                    "default": "asc"
+                                },
+                                "sidx": {
+                                    "type": "string",
+                                    "default": "course"
+                                },
+                                "_search": {
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            }
+                        }
+                    }
+                },
+                "required": true
+            }
+        },
+        "schemas": {
+            "student": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    }
+                }
+            },
+            "student_list": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/components/schemas/student"
+                }
+            },
+            "course": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                }
+            },
+            "course_detail": {
+                "type": "object",
+                "properties": {
+                    "courseSubject": {
+                        "type": "string"
+                    },
+                    "courseTitle": {
+                        "type": "string"
+                    },
+                    "currentProgress": {
+                        "type": "number"
+                    },
+                    "currentScore": {
+                        "type": "number"
+                    },
+                    "endDate": {
+                        "type": "string"
+                    },
+                    "startDate": {
+                        "type": "string"
+                    },
+                    "teacher": {
+                        "type": "string"
+                    }
+                }
+            },
+            "course_list": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/components/schemas/course"
+                }
+            }
+        }
+    },
+    "externalDocs": {
+        "description": "repository",
+        "url": "https://github.com/jw4/ignitia.go"
+    },
+    "servers": [
+        {
+            "description": "Enlightium Academy",
+            "url": "https://ignitiumwa.ignitiaschools.com/owsoo/parent/",
+            "variables": {}
+        }
+    ],
+    "paths": {
+        "/parent/populateStudents": {
+            "summary": "Get Student information",
+            "description": "Get Student information for all students under the login",
+            "get": {
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/auth_cookie"
+                    },
+                    {
+                        "$ref": "#/components/parameters/_"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A list of students",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/student_list"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/parent/populateCourses": {
+            "summary": "Get courses/enrollments for student",
+            "description": "Gets all the courses enrolled by student",
+            "get": {
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/auth_cookie"
+                    },
+                    {
+                        "$ref": "#/components/parameters/_"
+                    },
+                    {
+                        "$ref": "#/components/parameters/student_id"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A list of courses",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/course_list"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/parent/populateCourseDetails": {
+            "summary": "Get courses/enrollments details",
+            "description": "Gets all the details of course/enrollement",
+            "get": {
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/auth_cookie"
+                    },
+                    {
+                        "$ref": "#/components/parameters/_"
+                    },
+                    {
+                        "$ref": "#/components/parameters/enrollment_id"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Course details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/course_detail"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/parent/listAssignmentsByCourse": {
+            "summary": "Get assignments by course",
+            "description": "Get full assignment details of the course/enrollment",
+            "post": {
+                "parameters": [],
+                "responses": {
+                    "200": {}
+                }
+            }
+        }
+    }
+}
