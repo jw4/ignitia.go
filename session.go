@@ -68,8 +68,7 @@ type Session struct {
 	assets    string
 	templates string
 
-	collector     *colly.Collector
-	lastRefreshed time.Time
+	collector *colly.Collector
 
 	mux http.Handler
 }
@@ -93,31 +92,27 @@ func (s *Session) Refresh() error {
 		s.Error = s.init()
 	}
 
-	if len(s.Students) == 0 || s.lastRefreshed.Before(time.Now().Add(-10*time.Minute)) {
-		s.getAndUpdate(fmt.Sprintf("%s/owsoo/parent/populateStudents?_=%d", s.baseURL, ts()), s.loadStudentsFromJSON)
+	s.getAndUpdate(fmt.Sprintf("%s/owsoo/parent/populateStudents?_=%d", s.baseURL, ts()), s.loadStudentsFromJSON)
 
-		for _, student := range s.Students {
-			s.getAndUpdate(
-				fmt.Sprintf("%s/owsoo/parent/populateCourses?student_id=%d&_=%d", s.baseURL, student.ID, ts()),
-				s.loadCoursesFromJSON(student))
-		}
+	for _, student := range s.Students {
+		s.getAndUpdate(
+			fmt.Sprintf("%s/owsoo/parent/populateCourses?student_id=%d&_=%d", s.baseURL, student.ID, ts()),
+			s.loadCoursesFromJSON(student))
+	}
 
-		for _, student := range s.Students {
-			for _, course := range student.Courses {
-				data := map[string]string{
-					"student_id":    fmt.Sprintf("%d", student.ID),
-					"enrollment_id": fmt.Sprintf("%d", course.ID),
-					"nd":            fmt.Sprintf("%d", ts()),
-					"rows":          "1000",
-					"page":          "1",
-				}
-				s.postAndUpdate(
-					fmt.Sprintf("%s/owsoo/parent/listAssignmentsByCourse", s.baseURL),
-					data, s.loadAssignmentsFromJSON(course))
+	for _, student := range s.Students {
+		for _, course := range student.Courses {
+			data := map[string]string{
+				"student_id":    fmt.Sprintf("%d", student.ID),
+				"enrollment_id": fmt.Sprintf("%d", course.ID),
+				"nd":            fmt.Sprintf("%d", ts()),
+				"rows":          "1000",
+				"page":          "1",
 			}
+			s.postAndUpdate(
+				fmt.Sprintf("%s/owsoo/parent/listAssignmentsByCourse", s.baseURL),
+				data, s.loadAssignmentsFromJSON(course))
 		}
-
-		s.lastRefreshed = time.Now()
 	}
 
 	return s.Error
