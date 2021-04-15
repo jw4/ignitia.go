@@ -1,5 +1,6 @@
 NAME=ignitia
 IMAGE=docker.w.jw4.us/$(NAME)
+PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
 
 ifeq ($(BUILD_VERSION),)
 	BUILD_VERSION := $(shell git describe --dirty --first-parent --always --tags)
@@ -36,7 +37,7 @@ push:
 		--build-arg BUILD_VERSION=$(BUILD_VERSION) \
 		-t $(IMAGE):$(BUILD_VERSION) \
 		-t $(IMAGE):latest \
-		--platform linux/amd64,linux/arm64,linux/arm/v7 \
+		--platform $(PLATFORMS) \
 		--push \
 		.
 

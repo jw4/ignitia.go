@@ -44,6 +44,7 @@ func doServe(session *ignitia.Session) {
 	bind := os.Getenv("BIND")
 	fmt.Fprintf(os.Stderr, "Version: %s\n", version)
 	fmt.Fprintf(os.Stderr, "Serving on %s\n", bind)
+
 	if err := http.ListenAndServe(bind, session); err != nil {
 		fmt.Fprintf(os.Stderr, "error serving: %v\n", err)
 		os.Exit(-1)

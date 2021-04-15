@@ -3,55 +3,83 @@ package ignitia
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
 	"time"
 )
 
+var (
+	ErrValidation = errors.New("validation error")
+	ErrMarshal    = errors.New("json marshaling error")
+)
+
 func ToAssignment(raw map[string]interface{}) (*Assignment, error) {
 	id, ok := raw["id"].(float64)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for cell id: got %T (%v), expected number", raw["id"], raw["id"])
+		return nil, fmt.Errorf(
+			"unexpected type for cell id: got %T (%v), expected number [%w]",
+			raw["id"], raw["id"], ErrValidation)
 	}
+
 	assignment := &Assignment{ID: int(id)}
 
 	items, ok := raw["cell"].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for cell values: got %T (%v), expected []interface{}", raw["cell"], raw["cell"])
+		return nil, fmt.Errorf(
+			"unexpected type for cell values: got %T (%v), expected []interface{} [%w]",
+			raw["cell"], raw["cell"], ErrValidation)
 	}
 
-	if len(items) != 9 {
-		return nil, fmt.Errorf("unexpected length of items, got %d (%v), expected 9", len(items), items)
+	const columns = 9
+	if len(items) != columns {
+		return nil, fmt.Errorf(
+			"unexpected length of items, got %d (%v), expected %d [%w]",
+			len(items), items, columns, ErrValidation)
 	}
 
 	_, ok = items[0].(float64)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for ID (items[0]): got %T (%v), expected number", items[0], items[0])
+		return nil, fmt.Errorf(
+			"unexpected type for ID (items[0]): got %T (%v), expected number [%w]",
+			items[0], items[0], ErrValidation)
 	}
 
 	unit, ok := items[1].(float64)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for Unit (items[1]): got %T (%v), expected number", items[1], items[1])
+		return nil, fmt.Errorf(
+			"unexpected type for Unit (items[1]): got %T (%v), expected number [%w]",
+			items[1], items[1], ErrValidation)
 	}
+
 	assignment.Unit = int(unit)
 
 	title, ok := items[2].(string)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for Title (items[2]): got %T (%v), expected string", items[2], items[2])
+		return nil, fmt.Errorf(
+			"unexpected type for Title (items[2]): got %T (%v), expected string [%w]",
+			items[2], items[2], ErrValidation)
 	}
+
 	assignment.Title = title
 
 	typ, ok := items[3].(string)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for Type (items[3]): got %T (%v), expected string", items[3], items[3])
+		return nil, fmt.Errorf(
+			"unexpected type for Type (items[3]): got %T (%v), expected string [%w]",
+			items[3], items[3], ErrValidation)
 	}
+
 	assignment.Type = typ
 
 	progress, ok := items[4].(float64)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for Progress (items[4]): got %T (%v), expected number", items[4], items[4])
+		return nil, fmt.Errorf(
+			"unexpected type for Progress (items[4]): got %T (%v), expected number [%w]",
+			items[4], items[4], ErrValidation)
 	}
+
 	assignment.Progress = int(progress)
 
 	switch due := items[5].(type) {
@@ -59,7 +87,9 @@ func ToAssignment(raw map[string]interface{}) (*Assignment, error) {
 		assignment.Due = due
 	case nil:
 	default:
-		return nil, fmt.Errorf("unexpected type for Due (items[5]): got %T (%v), expected string", items[5], items[5])
+		return nil, fmt.Errorf(
+			"unexpected type for Due (items[5]): got %T (%v), expected string [%w]",
+			items[5], items[5], ErrValidation)
 	}
 
 	switch completed := items[6].(type) {
@@ -67,19 +97,27 @@ func ToAssignment(raw map[string]interface{}) (*Assignment, error) {
 		assignment.Completed = completed
 	case nil:
 	default:
-		return nil, fmt.Errorf("unexpected type for Completed (items[6]): got %T (%v), expected string", items[6], items[6])
+		return nil, fmt.Errorf(
+			"unexpected type for Completed (items[6]): got %T (%v), expected string [%w]",
+			items[6], items[6], ErrValidation)
 	}
 
 	score, ok := items[7].(float64)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for Score (items[7]): got %T (%v), expected number", items[7], items[7])
+		return nil, fmt.Errorf(
+			"unexpected type for Score (items[7]): got %T (%v), expected number [%w]",
+			items[7], items[7], ErrValidation)
 	}
+
 	assignment.Score = int(score)
 
 	status, ok := items[8].(string)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for Status (items[8]): got %T (%v), expected string", items[8], items[8])
+		return nil, fmt.Errorf(
+			"unexpected type for Status (items[8]): got %T (%v), expected string [%w]",
+			items[8], items[8], ErrValidation)
 	}
+
 	assignment.Status = status
 
 	return assignment, nil
@@ -123,7 +161,7 @@ func (a *Assignment) IsCurrent() bool {
 		return true
 	}
 
-  return false
+	return false
 }
 
 func (a *Assignment) IsFuture() bool { return a.DueDate().After(tomorrow()) }
@@ -133,7 +171,8 @@ func (a *Assignment) IsDue() bool {
 		return false
 	}
 
-	if a.Progress == 100 {
+	const finished = 100
+	if a.Progress == finished {
 		return false
 	}
 
@@ -158,23 +197,25 @@ func (a *Assignment) IsOverdue() bool {
 
 func today() time.Time {
 	y, m, d := time.Now().Date()
+
 	return time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 }
 
 func tomorrow() time.Time {
-	return today().Add(24 * time.Hour)
-}
+	const day = 24
 
-func yesterday() time.Time {
-	return today().Add(-24 * time.Hour)
+	return today().Add(day * time.Hour)
 }
 
 func thisWeek() time.Time {
 	cur := today()
+
 	offset := int(time.Monday - cur.Weekday())
 	if offset > 0 {
-		offset = -6
+		const weekBegin = -6
+		offset = weekBegin
 	}
+
 	return cur.AddDate(0, 0, offset)
 }
 
@@ -187,9 +228,11 @@ func parseDate(s string) time.Time {
 	if err != nil {
 		return time.Time{}
 	}
+
 	return dt
 }
 
+// nolint: unused
 type assignmentResponseHelper struct {
 	Page        int
 	Total       int
@@ -204,9 +247,10 @@ func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
 		Records     int         `json:"records"`
 		Assignments interface{} `json:"rows"`
 	}
+
 	r := responseType{}
 	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&r); err != nil {
-		return err
+		return fmt.Errorf("%v [%w]", err, ErrMarshal)
 	}
 
 	a.Total = r.Total
@@ -220,20 +264,28 @@ func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
 	case string:
 		p, err := strconv.Atoi(v)
 		if err != nil {
-			return fmt.Errorf("unexpected value for Page: expected number got %v: %v", v, err)
+			return fmt.Errorf(
+				"unexpected value for Page: expected number got %v: %v [%w]",
+				v, err, ErrMarshal)
 		}
+
 		a.Page = p
 	default:
-		return fmt.Errorf("unexpected type for Page: got %T (%v), expected int or string", v, v)
+		return fmt.Errorf(
+			"unexpected type for Page: got %T (%v), expected int or string [%w]",
+			v, v, ErrMarshal)
 	}
 
 	switch rows := r.Assignments.(type) {
 	case map[string]interface{}:
 		if len(rows) > 0 {
-			return fmt.Errorf("unexpected type for rows: got map with %d keys, expected []interface{} or empty map", len(rows))
+			return fmt.Errorf(
+				"unexpected type for rows: got map with %d keys, expected []interface{} or empty map [%w]",
+				len(rows), ErrMarshal)
 		}
 	case []interface{}:
 		assignments := map[int]*Assignment{}
+
 		for _, v := range rows {
 			switch cell := v.(type) {
 			case map[string]interface{}:
@@ -244,7 +296,9 @@ func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
 
 				assignments[assignment.ID] = assignment
 			default:
-				return fmt.Errorf("unexpected type for cells: got %T, expected map[string]interface{}", cell)
+				return fmt.Errorf(
+					"unexpected type for cells: got %T, expected map[string]interface{} [%w]",
+					cell, ErrMarshal)
 			}
 		}
 
@@ -252,11 +306,14 @@ func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
 		for _, v := range assignments {
 			list = append(list, v)
 		}
+
 		sort.Slice(list, func(i, j int) bool { return list[i].DueDate().Before(list[j].DueDate()) })
 
 		a.Assignments = list
 	default:
-		return fmt.Errorf("unexpected type for rows: got %T, expected map[string]interface{} or []interface{}", rows)
+		return fmt.Errorf(
+			"unexpected type for rows: got %T, expected map[string]interface{} or []interface{} [%w]",
+			rows, ErrMarshal)
 	}
 
 	return nil
