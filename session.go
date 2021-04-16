@@ -84,13 +84,7 @@ func (s *Session) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 // Refresh updates the cached data.
 func (s *Session) Refresh() error {
-	if s.Error != nil {
-		s.collector = nil
-	}
-
-	if s.collector == nil {
-		s.Error = s.init()
-	}
+	s.Error = s.init()
 
 	s.getAndUpdate(fmt.Sprintf("%s/owsoo/parent/populateStudents?_=%d", s.baseURL, ts()), s.loadStudentsFromJSON)
 
