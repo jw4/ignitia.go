@@ -163,6 +163,8 @@ func (s *Session) init() error {
 		colly.TraceHTTP(),
 	)
 
+	s.collector.SetRequestTimeout(30 * time.Second)
+
 	s.collector.OnRequest(s.logRequest)
 	s.collector.OnResponse(s.logResponse)
 
