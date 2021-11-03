@@ -232,7 +232,6 @@ func parseDate(s string) time.Time {
 	return dt
 }
 
-// nolint: unused
 type assignmentResponseHelper struct {
 	Page        int
 	Total       int

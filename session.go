@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gocolly/colly/v2"
+	"github.com/google/safehtml"
 )
 
 // Option represents a function that can modify a session.
@@ -190,7 +191,7 @@ func (s *Session) login(element *colly.HTMLElement) {
 }
 
 func (s *Session) loginError(element *colly.HTMLElement) {
-	s.Error = fmt.Errorf("Error logging in: %s", element.Text)
+	s.Error = fmt.Errorf("error logging in: %s", element.Text)
 }
 
 func (s *Session) loadStudentsFromJSON(response *colly.Response) {
@@ -331,7 +332,7 @@ func assertJSON(r *colly.Response) bool {
 func ts() int64 { return time.Now().Unix() }
 
 var htmlHelpers = template.FuncMap{
-	"htmlsafe": func(s string) template.HTML { return template.HTML(s) },
+	"htmlsafe": func(s string) template.HTML { return template.HTML(safehtml.HTMLEscaped(s).String()) }, // nolint: gosec
 	"tolower":  strings.ToLower,
 	"timenow":  func() string { return time.Now().Format(time.RFC3339) },
 }
