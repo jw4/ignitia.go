@@ -175,7 +175,7 @@ func (s *Session) init() error {
 		return err
 	}
 
-	return s.Error
+	return nil
 }
 
 func (s *Session) login(element *colly.HTMLElement) {
