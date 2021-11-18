@@ -7,13 +7,13 @@
     <section id="student_{{ $student_id }}" class="student" data-num-courses="{{ len .Courses }}" data-num-courses-incomplete="{{ .IncompleteCourses }}">
         <h2>{{ .DisplayName | htmlsafe }}</h2>
         {{- with .OverdueAssignments}}
-        <p class="overdue">{{ . }} overdue assignments</p>
+        <p class="overdue">Total {{ . }} past due</p>
         {{- end }}
         {{- range .Courses }}{{ $course_id := .ID }}
         <section id="course_{{ $student_id }}_{{ $course_id }}" class="course" data-num-assignments="{{ len .Assignments }}" data-num-assignments-incomplete="{{ .IncompleteAssignments }}">
             <h3>{{ .Title }}</h3>
             {{- with .OverdueAssignments}}
-            <p class="overdue">{{ . }} overdue assignments</p>
+            <p class="overdue">{{ . }} past due</p>
             {{- end }}
             {{- range .Assignments }}{{ $assignment_id := .ID }}
             <section id="assignment_{{ $student_id }}_{{ $course_id }}_{{ $assignment_id }}" class="{{ template `assignment_classes` .}}">
