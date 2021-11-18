@@ -15,15 +15,15 @@ var (
 	ErrMarshal    = errors.New("json marshaling error")
 )
 
-func ToAssignment(raw map[string]interface{}) (*Assignment, error) {
-	id, ok := raw["id"].(float64)
+func ToAssignment(raw map[string]interface{}) (*Assignment, error) { // nolint: funlen,cyclop
+	id, ok := raw["id"].(float64) // nolint: varnamelen
 	if !ok {
 		return nil, fmt.Errorf(
 			"unexpected type for cell id: got %T (%v), expected number [%w]",
 			raw["id"], raw["id"], ErrValidation)
 	}
 
-	assignment := &Assignment{ID: int(id)}
+	assignment := &Assignment{ID: int(id)} // nolint: exhaustivestruct
 
 	items, ok := raw["cell"].([]interface{})
 	if !ok {
@@ -220,7 +220,9 @@ func thisWeek() time.Time {
 }
 
 func nextWeek() time.Time {
-	return thisWeek().AddDate(0, 0, 7)
+	const daysInWeek = 7
+
+	return thisWeek().AddDate(0, 0, daysInWeek)
 }
 
 func parseDate(s string) time.Time {
@@ -232,22 +234,22 @@ func parseDate(s string) time.Time {
 	return dt
 }
 
-type assignmentResponseHelper struct {
+type assignmentResponseHelper struct { // nolint: unused
 	Page        int
 	Total       int
 	Records     int
 	Assignments []*Assignment
 }
 
-func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
-	type responseType struct {
+func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error { // nolint: funlen,unused,cyclop,varnamelen
+	type responseType struct { // nolint: unused
 		Page        interface{} `json:"page"`
 		Total       int         `json:"total"`
 		Records     int         `json:"records"`
 		Assignments interface{} `json:"rows"`
 	}
 
-	r := responseType{}
+	r := responseType{} // nolint: exhaustivestruct,varnamelen
 	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&r); err != nil {
 		return fmt.Errorf("%v [%w]", err, ErrMarshal)
 	}
@@ -255,13 +257,13 @@ func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
 	a.Total = r.Total
 	a.Records = r.Records
 
-	switch v := r.Page.(type) {
+	switch v := r.Page.(type) { // nolint: varnamelen
 	case float64:
 		a.Page = int(v)
 	case int:
 		a.Page = v
 	case string:
-		p, err := strconv.Atoi(v)
+		p, err := strconv.Atoi(v) // nolint: varnamelen
 		if err != nil {
 			return fmt.Errorf(
 				"unexpected value for Page: expected number got %v: %v [%w]",

@@ -15,3 +15,11 @@ func (s *Student) IncompleteCourses() int {
 	}
 	return incomplete
 }
+
+func (s *Student) OverdueAssignments() int {
+	var overdue int
+	for _, c := range s.Courses {
+		overdue += c.OverdueAssignments()
+	}
+	return overdue
+}

@@ -161,7 +161,6 @@ func (s *Session) renderError(writer http.ResponseWriter, err error) {
 func (s *Session) init() error {
 	s.collector = colly.NewCollector(
 		colly.UserAgent("report-generator v0.0.1 (johnweldon4@gmail.com)"),
-		colly.TraceHTTP(),
 	)
 
 	s.collector.SetRequestTimeout(30 * time.Second)
@@ -293,17 +292,17 @@ func (s *Session) logRequest(request *colly.Request) {
 }
 
 func (s *Session) logResponse(response *colly.Response) {
-	fmt.Fprintf(s.DebugWriter, "%d %d %s %s\n",
+	fmt.Fprintf(s.DebugWriter, "%d %d %s\n",
 		response.Request.ID,
 		response.StatusCode,
-		response.Trace.FirstByteDuration,
-		response.Trace.ConnectDuration)
-	if response.StatusCode >= http.StatusBadRequest {
-		fmt.Fprintf(s.DebugWriter, "%d %d\n---\n%s\n---\n",
-			response.Request.ID,
-			response.StatusCode,
-			string(response.Body))
+		http.StatusText(response.StatusCode),
+	)
+
+	if response.StatusCode < http.StatusBadRequest {
+		return
 	}
+
+	fmt.Fprintf(s.DebugWriter, "\n---\n%s\n---\n", string(response.Body))
 }
 
 func assertOK(r *colly.Response) bool {

@@ -2,7 +2,7 @@
 # Builder
 #
 
-FROM    golang:1.16 AS builder
+FROM    golang:1.17 AS builder
 
 RUN     apt-get update && apt-get -uy upgrade
 RUN     apt-get -y install ca-certificates && update-ca-certificates
