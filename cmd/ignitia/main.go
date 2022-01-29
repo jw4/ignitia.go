@@ -93,7 +93,7 @@ func printDue(session *ignitia.Session, out io.Writer) {
 
 			for _, assignment := range course.Assignments {
 				if assignment.IsDue() {
-					fmt.Fprintf(out, "    Assignment: %s\n", assignment)
+					fmt.Fprintf(out, "    Assignment: %s\n", assignment.String())
 				}
 			}
 		}

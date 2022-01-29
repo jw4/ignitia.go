@@ -1,9 +1,10 @@
 package ignitia
 
+import "github.com/jw4/ignitia.go/pkg/collect"
+
 type Student struct {
-	ID          int       `json:"id"`
-	DisplayName string    `json:"displayName"`
-	Courses     []*Course `json:"-"`
+	collect.Student
+	Courses []Course `json:"-"`
 }
 
 func (s *Student) IncompleteCourses() int {
