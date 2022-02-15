@@ -146,7 +146,8 @@ func (s *Session) renderError(writer http.ResponseWriter, err error) {
 }
 
 var htmlHelpers = template.FuncMap{
-	"htmlsafe": func(s string) template.HTML { return template.HTML(safehtml.HTMLEscaped(s).String()) }, // nolint: gosec
+	"htmlsafe": func(s string) template.HTML { return template.HTML(safehtml.HTMLEscaped(s).String()) },
+	"rawhtml":  func(s string) template.HTML { return template.HTML(s) },
 	"tolower":  strings.ToLower,
 	"timenow":  func() string { return time.Now().Format(time.RFC3339) },
 }
