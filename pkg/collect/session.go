@@ -139,6 +139,10 @@ func (s *Session) logResponse(response *colly.Response) {
 	s.logger.Printf("response body:\n---\n%s\n---\n", string(response.Body))
 }
 
+func (s *Session) Reset() {
+	s.collector = nil
+}
+
 func (s *Session) Students() []Student {
 	if err := s.init(); err != nil {
 		return nil

@@ -86,7 +86,7 @@ func (s *Session) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 func (s *Session) Refresh() error {
 	s.Error = nil
 	s.Students = nil
-	s.coll = nil
+	s.coll.Reset()
 
 	for _, student := range s.coll.Students() {
 		var courses []Course
