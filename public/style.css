@@ -1,9 +1,27 @@
+:root {
+    --main-bg-color: #ffffff;
+    --main-fg-color: #333333;
+    --main-label-color: #000000;
+    --assignment-ok-background: #99ff9911;
+    --assignment-complete-background: #99ff99;
+    --assignment-due-background: #ff333333;
+    --assignment-due-color: #330000;
+    --assignment-due-label: #660000;
+    --assignment-overdue-background: #ff333399;
+    --assignment-overdue-color: #ff3333;
+    --assignment-overdue-label: #ff0000;
+    --assignment-border-color: #666666;
+    --status-label-color: #666666;
+    --definition-label-color: #999999;
+    --deemphasized-label-color: #dddddd;
+}
+
 body {
     margin: 1em;
     font-family: Helvetica, sans-serif;
     font-size: larger;
-    color: #333;
-    background: #FFF;
+    color: var(--main-fg-color);
+    background: var(--main-bg-color);
 }
 
 #main {
@@ -52,8 +70,8 @@ section[data-num-assignments-incomplete="0"].course {
 
 .assignment {
     padding: 0.25em 1em;
-    background: rgba(238, 255, 238, 0.25);
-    border-top: 1px dotted #666;
+    background: var(--assignment-ok-background);
+    border-top: var(--assignment-border-color);
 }
 
 .assignment.complete,
@@ -66,25 +84,29 @@ section.assignment.current {
     display: block;
 }
 
+section.assignment.complete {
+    background: var(--assignment-complete-background);
+}
+
 section.assignment.due {
     display: block;
-    background: rgba(238, 238, 238, 0.1);
+    background: var(--assignment-due-background);
 }
 
 section.assignment.overdue {
     display: block;
-    background: rgba(255, 238, 238, 0.5);
+    background: var(--assignment-overdue-background);
 }
 
 section.assignment.overdue::after {
-    color: #f33;
+    color: var(--assignment-overdue-label);
     content: "* OVERDUE *";
     font-variant: all-small-caps;
 }
 
 dl dt {
     display: inline-flex;
-    color: #999;
+    color: var(--definition-label-color);
     font-variant: all-small-caps;
 }
 
@@ -94,17 +116,28 @@ dl dd {
     font-size: small;
 }
 
+.due dl dt:first-child+dd {
+    color: var(--assignment-due-label);
+}
+
+p.due {
+    display: inline-block;
+    color: var(--assignment-due-color);
+    font-variant: all-small-caps;
+}
+
 .overdue dl dt:first-child+dd {
-    color: #f33;
+    color: var(--assignment-overdue-label);
 }
 
 p.overdue {
-    color: #933;
+    display: inline-block;
+    color: var(--assignment-overdue-color);
     font-variant: all-small-caps;
 }
 
 .timestamp {
-    color: #ddd;
+    color: var(--deemphasized-label-color);
     font-variant: all-small-caps;
     width: 90%;
     margin: 5em auto;
@@ -115,7 +148,7 @@ p.overdue {
 }
 
 .title {
-    color: #000;
+    color: var(--main-label-color);
 }
 
 .type {
@@ -123,7 +156,7 @@ p.overdue {
 }
 
 .status {
-    color: #666;
+    color: var(--status-label-color);
     font-size: small;
 }
 

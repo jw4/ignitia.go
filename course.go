@@ -19,6 +19,18 @@ func (c *Course) IncompleteAssignments() int {
 	return incomplete
 }
 
+func (c *Course) DueAssignments() int {
+	var due int
+
+	for _, a := range c.Assignments {
+		if a.IsDue() {
+			due++
+		}
+	}
+
+	return due
+}
+
 func (c *Course) OverdueAssignments() int {
 	var overdue int
 
