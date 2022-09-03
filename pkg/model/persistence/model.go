@@ -198,6 +198,7 @@ func (m *Model) Assignments(student model.Student, course model.Course) []model.
 			&assignment.Completed,
 			&assignment.Score,
 			&assignment.Status,
+      &assignment.AsOf,
 		); err != nil {
 			m.modelErr = err
 			return assignments

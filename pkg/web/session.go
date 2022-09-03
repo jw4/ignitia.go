@@ -113,6 +113,25 @@ func (s *Session) RenderHTML(out io.Writer) error {
 	return nil
 }
 
+func (s *Session) LastUpdate() string {
+	var latest time.Time
+	for _, student := range s.Students {
+		for _, course := range student.Courses {
+			for _, assignment := range course.Assignments {
+				if assignment.AsOfTime().After(latest) {
+					latest = assignment.AsOfTime()
+				}
+			}
+		}
+	}
+
+	if latest.IsZero() {
+		return "-n/a-"
+	}
+
+	return latest.In(time.Local).Format(time.RFC1123)
+}
+
 func (s *Session) renderIndex(writer http.ResponseWriter, _ *http.Request) {
 	pat := filepath.Join(s.templates, "*.gohtml")
 	tmpl, err := template.New("index").Funcs(htmlHelpers).ParseGlob(pat)
@@ -162,5 +181,4 @@ var htmlHelpers = template.FuncMap{
 	"htmlsafe": func(s string) template.HTML { return template.HTML(safehtml.HTMLEscaped(s).String()) },
 	"rawhtml":  func(s string) template.HTML { return template.HTML(s) },
 	"tolower":  tolower,
-	"timenow":  func() string { return time.Now().Format(time.RFC3339) },
 }

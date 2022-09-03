@@ -15,15 +15,16 @@ type Assignment struct {
 	Completed string
 	Score     int
 	Status    string
+	AsOf      string
 }
 
 func (a *Assignment) String() string {
 	return fmt.Sprintf("Unit: %d, %s, %q, Due: %s, Status: %s", a.Unit, a.Type, a.Title, a.Due, a.Status)
 }
 
+func (a *Assignment) AsOfTime() time.Time     { return parseTime(a.AsOf) }
 func (a *Assignment) CompleteDate() time.Time { return parseDate(a.Completed) }
-
-func (a *Assignment) DueDate() time.Time { return parseDate(a.Due) }
+func (a *Assignment) DueDate() time.Time      { return parseDate(a.Due) }
 
 func (a *Assignment) IsIncomplete() bool {
 	switch a.Status {
@@ -114,6 +115,17 @@ func nextWeek() time.Time {
 func parseDate(s string) time.Time {
 	for _, fmt := range []string{"2006-01-02", "01/02/2006"} {
 		dt, err := time.ParseInLocation(fmt, s, time.Local)
+		if err == nil {
+			return dt
+		}
+	}
+
+	return time.Time{}
+}
+
+func parseTime(s string) time.Time {
+	for _, fmt := range []string{"2006-01-02 15:04:05", time.RFC3339, time.RFC822, "2006-01-02", "01/02/2006"} {
+		dt, err := time.ParseInLocation(fmt, s, time.UTC)
 		if err == nil {
 			return dt
 		}

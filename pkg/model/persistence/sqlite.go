@@ -127,7 +127,8 @@ SELECT
   due,
   completed,
   score,
-  status
+  status,
+  as_of
 FROM
   student_assignments
 WHERE
