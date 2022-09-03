@@ -47,7 +47,7 @@ func NewSession(collector Collector, opts ...Option) *Session {
 }
 
 type Collector interface {
-	Reset()
+	Reset() error
 	Error() error
 	Students() []model.Student
 	Courses(model.Student) []model.Course
@@ -79,9 +79,8 @@ func (s *Session) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 // Refresh updates the cached data.
 func (s *Session) Refresh() error {
-	s.Error = nil
 	s.Students = nil
-	s.coll.Reset()
+	s.Error = s.coll.Reset()
 
 	for _, student := range s.coll.Students() {
 		var courses []model.Course
