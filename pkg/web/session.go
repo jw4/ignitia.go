@@ -1,4 +1,4 @@
-package ignitia
+package web
 
 import (
 	"fmt"
@@ -11,19 +11,12 @@ import (
 	"time"
 
 	"github.com/google/safehtml"
-	"github.com/jw4/ignitia.go/pkg/collect"
+
+	"github.com/jw4/ignitia.go/pkg/model"
 )
 
 // Option represents a function that can modify a session.
 type Option func(*Session)
-
-// BaseURL sets the base ignitia URL.
-func BaseURL(u string) Option { return func(s *Session) { s.baseURL = u } }
-
-// Credentials sets the ignitia login credentials.
-func Credentials(username, password string) Option {
-	return func(s *Session) { s.username, s.password = username, password }
-}
 
 // Assets configures the public assets root folder.
 func Assets(path string) Option { return func(s *Session) { s.assets = path } }
@@ -32,18 +25,17 @@ func Assets(path string) Option { return func(s *Session) { s.assets = path } }
 func Templates(path string) Option { return func(s *Session) { s.templates = path } }
 
 // NewSession returns a Session.
-func NewSession(opts ...Option) *Session {
+func NewSession(collector Collector, opts ...Option) *Session {
 	ses := &Session{
 		DebugWriter: os.Stdout,
 		assets:      "public",
 		templates:   "templates",
+		coll:        collector,
 	}
 
 	for _, opt := range opts {
 		opt(ses)
 	}
-
-	ses.coll = collect.NewSession(ses.baseURL, ses.username, ses.password)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.Dir(ses.assets)))
@@ -54,19 +46,22 @@ func NewSession(opts ...Option) *Session {
 	return ses
 }
 
+type Collector interface {
+	Reset()
+	Error() error
+	Students() []model.Student
+	Courses(model.Student) []model.Course
+	Assignments(model.Student, model.Course) []model.Assignment
+}
+
 // Session wraps a web session to ignitia.
 type Session struct {
 	DebugWriter io.Writer
+	Error       error
+	Students    []model.Student
 
-	Error error
+	coll Collector
 
-	Students []Student
-
-	coll *collect.Session
-
-	baseURL   string
-	username  string
-	password  string
 	assets    string
 	templates string
 
@@ -89,16 +84,18 @@ func (s *Session) Refresh() error {
 	s.coll.Reset()
 
 	for _, student := range s.coll.Students() {
-		var courses []Course
+		var courses []model.Course
 
 		for _, course := range s.coll.Courses(student) {
-			courses = append(courses, Course{course, s.coll.Assignments(student, course)})
+			course.Assignments = s.coll.Assignments(student, course)
+			courses = append(courses, course)
 		}
 
-		s.Students = append(s.Students, Student{student, courses})
+		student.Courses = courses
+		s.Students = append(s.Students, student)
 	}
 
-	return s.coll.Error
+	return s.coll.Error()
 }
 
 // RenderHTML writes the report page out.
@@ -146,9 +143,24 @@ func (s *Session) renderError(writer http.ResponseWriter, err error) {
 	fmt.Fprintf(s.DebugWriter, "Error serving page: %v\n", err)
 }
 
+func tolower(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			return r + 'a' - 'A'
+		case r >= 'a' && r <= 'z':
+			return r
+		case r == ' ':
+			return '-'
+		default:
+			return -1
+		}
+	}, s)
+}
+
 var htmlHelpers = template.FuncMap{
 	"htmlsafe": func(s string) template.HTML { return template.HTML(safehtml.HTMLEscaped(s).String()) },
 	"rawhtml":  func(s string) template.HTML { return template.HTML(s) },
-	"tolower":  strings.ToLower,
+	"tolower":  tolower,
 	"timenow":  func() string { return time.Now().Format(time.RFC3339) },
 }

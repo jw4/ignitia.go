@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gocolly/colly/v2"
+	"github.com/jw4/ignitia.go/pkg/model"
 )
 
 var (
@@ -20,7 +21,7 @@ var (
 )
 
 type Session struct {
-	Error error
+	errSession error
 
 	collector *colly.Collector
 	logger    *log.Logger
@@ -71,16 +72,16 @@ func (s *Session) login(element *colly.HTMLElement) {
 	}
 
 	if err := element.Request.Post(element.Attr("action"), data); err != nil {
-		s.Error = err
+		s.errSession = err
 	}
 }
 
 func (s *Session) loginError(element *colly.HTMLElement) {
-	s.Error = fmt.Errorf("error logging in: %s", element.Text)
+	s.errSession = fmt.Errorf("error logging in: %s", element.Text)
 }
 
 func (s *Session) getAndUpdate(link string, loader func(*colly.Response)) {
-	if s.Error != nil {
+	if s.errSession != nil {
 		return
 	}
 
@@ -92,12 +93,12 @@ func (s *Session) getAndUpdate(link string, loader func(*colly.Response)) {
 	clone.OnResponse(loader)
 
 	if err := clone.Visit(link); err != nil {
-		s.Error = err
+		s.errSession = err
 	}
 }
 
 func (s *Session) postAndUpdate(link string, data map[string]string, loader func(*colly.Response)) {
-	if s.Error != nil {
+	if s.errSession != nil {
 		return
 	}
 
@@ -109,7 +110,7 @@ func (s *Session) postAndUpdate(link string, data map[string]string, loader func
 	clone.OnResponse(loader)
 
 	if err := clone.Post(link, data); err != nil {
-		s.Error = err
+		s.errSession = err
 	}
 }
 
@@ -139,23 +140,22 @@ func (s *Session) logResponse(response *colly.Response) {
 	s.logger.Printf("response body:\n---\n%s\n---\n", string(response.Body))
 }
 
-func (s *Session) Reset() {
-	s.collector = nil
-}
+func (s *Session) Error() error { return s.errSession }
+func (s *Session) Reset()       { s.collector = nil }
 
-func (s *Session) Students() []Student {
+func (s *Session) Students() []model.Student {
 	if err := s.init(); err != nil {
 		return nil
 	}
 
-	var students []Student
+	var students []model.Student
 	loadStudentsFromJSON := func(response *colly.Response) {
 		if !(assertOK(response) && assertJSON(response)) {
 			return
 		}
 
 		if err := json.NewDecoder(bytes.NewReader(response.Body)).Decode(&students); err != nil {
-			s.Error = err
+			s.errSession = err
 			return
 		}
 
@@ -167,19 +167,19 @@ func (s *Session) Students() []Student {
 	return students
 }
 
-func (s *Session) Courses(student Student) []Course {
+func (s *Session) Courses(student model.Student) []model.Course {
 	if err := s.init(); err != nil {
 		return nil
 	}
 
-	var courses []Course
+	var courses []model.Course
 	loadCoursesFromJSON := func(response *colly.Response) {
 		if !(assertOK(response) && assertJSON(response)) {
 			return
 		}
 
 		if err := json.NewDecoder(bytes.NewReader(response.Body)).Decode(&courses); err != nil {
-			s.Error = err
+			s.errSession = err
 			return
 		}
 
@@ -193,7 +193,7 @@ func (s *Session) Courses(student Student) []Course {
 	return courses
 }
 
-func (s *Session) Assignments(student Student, course Course) []Assignment {
+func (s *Session) Assignments(student model.Student, course model.Course) []model.Assignment {
 	if err := s.init(); err != nil {
 		return nil
 	}
@@ -201,7 +201,7 @@ func (s *Session) Assignments(student Student, course Course) []Assignment {
 	var helper assignmentResponseHelper
 
 	loadAssignmentsFromJSON := func(response *colly.Response) {
-		if s.Error != nil {
+		if s.errSession != nil {
 			return
 		}
 
@@ -210,7 +210,7 @@ func (s *Session) Assignments(student Student, course Course) []Assignment {
 		}
 
 		if err := json.NewDecoder(bytes.NewReader(response.Body)).Decode(&helper); err != nil {
-			s.Error = err
+			s.errSession = err
 			return
 		}
 	}

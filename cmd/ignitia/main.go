@@ -8,18 +8,21 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/jw4/ignitia.go"
+	"github.com/jw4/ignitia.go/pkg/collect"
+	"github.com/jw4/ignitia.go/pkg/model"
+	"github.com/jw4/ignitia.go/pkg/model/persistence"
+	"github.com/jw4/ignitia.go/pkg/web"
 )
 
 var version = "dev"
 
 func main() {
-	opts := []ignitia.Option{
-		ignitia.BaseURL(os.Getenv("IGNITIA_BASE_URL")),
-		ignitia.Credentials(os.Getenv("IGNITIA_USERNAME"), os.Getenv("IGNITIA_PASSWORD")),
-		ignitia.Assets(os.Getenv("PUBLIC_ASSETS")),
-		ignitia.Templates(os.Getenv("TEMPLATES")),
+	ses := persistence.NewModel(os.Getenv("IGNITIA_DB"))
+	opts := []web.Option{
+		web.Assets(os.Getenv("PUBLIC_ASSETS")),
+		web.Templates(os.Getenv("TEMPLATES")),
 	}
+	webSession := web.NewSession(ses, opts...)
 
 	action := "help"
 	if len(os.Args) > 1 {
@@ -28,11 +31,20 @@ func main() {
 
 	switch action {
 	case "serve":
-		doServe(ignitia.NewSession(opts...))
+		doServe(webSession)
 	case "html":
-		doHTML(ignitia.NewSession(opts...))
-	case "print":
-		doPrint(ignitia.NewSession(opts...))
+		doHTML(webSession)
+	case "due":
+		doPrint(webSession, isDue)
+	case "overdue":
+		doPrint(webSession, isOverdue)
+	case "snapshot":
+		doSnapshot(
+			os.Getenv("IGNITIA_DB"),
+			collect.NewSession(
+				os.Getenv("IGNITIA_BASE_URL"),
+				os.Getenv("IGNITIA_USERNAME"),
+				os.Getenv("IGNITIA_PASSWORD")))
 	default:
 		doHelp()
 	}
@@ -40,7 +52,7 @@ func main() {
 
 func doHelp() { fmt.Fprint(os.Stderr, helpText) }
 
-func doServe(session *ignitia.Session) {
+func doServe(session *web.Session) {
 	bind := os.Getenv("BIND")
 	fmt.Fprintf(os.Stderr, "Version: %s\n", version)
 	fmt.Fprintf(os.Stderr, "Serving on %s\n", bind)
@@ -51,7 +63,7 @@ func doServe(session *ignitia.Session) {
 	}
 }
 
-func doHTML(session *ignitia.Session) {
+func doHTML(session *web.Session) {
 	session.DebugWriter = ioutil.Discard
 
 	if err := session.Refresh(); err != nil {
@@ -65,19 +77,27 @@ func doHTML(session *ignitia.Session) {
 	}
 }
 
-func doPrint(session *ignitia.Session) {
+func doPrint(session *web.Session, with func(model.Assignment) bool) {
 	session.DebugWriter = ioutil.Discard
+	session.DebugWriter = os.Stderr
 
 	if err := session.Refresh(); err != nil {
 		fmt.Fprintf(os.Stderr, "error refreshing: %v\n", err)
 		os.Exit(-1)
 	}
 
-	printDue(session, os.Stdout)
+	print(filter(session.Students, with), os.Stdout)
 }
 
-func printDue(session *ignitia.Session, out io.Writer) {
-	for _, student := range session.Students {
+func doSnapshot(dbName string, ses *collect.Session) {
+	if err := persistence.SQLiteSnapshot(dbName, ses); err != nil {
+		fmt.Fprintf(os.Stderr, "error snapshotting: %v\n", err)
+		os.Exit(-1)
+	}
+}
+
+func print(students []model.Student, out io.Writer) {
+	for _, student := range students {
 		if len(student.Courses) == 0 {
 			continue
 		}
@@ -92,23 +112,58 @@ func printDue(session *ignitia.Session, out io.Writer) {
 			fmt.Fprintf(out, "\n  Course: %s; %d assignments\n", course.Title, len(course.Assignments))
 
 			for _, assignment := range course.Assignments {
-				if assignment.IsDue() {
-					fmt.Fprintf(out, "    Assignment: %s\n", assignment.String())
-				}
+				fmt.Fprintf(out, "    Assignment: %s\n", assignment.String())
 			}
 		}
 	}
 }
 
+func isDue(a model.Assignment) bool     { return a.IsDue() }
+func isOverdue(a model.Assignment) bool { return a.IsOverdue() }
+
+func filter(students []model.Student, with func(model.Assignment) bool) []model.Student {
+	var filtered []model.Student
+	for _, student := range students {
+		var filteredCourses []model.Course
+
+		for _, course := range student.Courses {
+			var filteredAssignments []model.Assignment
+
+			for _, assignment := range course.Assignments {
+				if with(assignment) {
+					filteredAssignments = append(filteredAssignments, assignment)
+				}
+			}
+
+			if len(filteredAssignments) > 0 {
+				filteredCourses = append(filteredCourses, model.Course{
+					ID:          course.ID,
+					Title:       course.Title,
+					Assignments: filteredAssignments,
+				})
+			}
+		}
+
+		if len(filteredCourses) > 0 {
+			filtered = append(filtered, model.Student{
+				ID:          student.ID,
+				DisplayName: student.DisplayName,
+				Courses:     filteredCourses,
+			})
+		}
+	}
+
+	return filtered
+}
+
 const helpText = `
 options:
 
-  serve		serve web page
-
-  html  	render report in HTML
-
-  print 	render report in plain text
-
-  help		display this help
+  serve      serve web page
+  html       render report in HTML
+  due        print due assignments
+  overdue    print overdue assignments
+  snapshot   update sqlite db
+  help       display this help
 
 `
