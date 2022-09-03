@@ -121,17 +121,24 @@ func (m *Model) SaveAssignments(student model.Student, course model.Course, assi
 	return tx.Commit()
 }
 
+func (m *Model) Close() error {
+	err := m.conn.Close()
+	if err != nil {
+		log.Printf("warning while closing connection: %v", err)
+	}
+
+	m.conn = nil
+
+	return err
+}
+
 func (m *Model) Reset() error {
 	if m.conn != nil {
 		if m.modelErr == nil {
 			return nil
 		}
 
-		if err := m.conn.Close(); err != nil {
-			log.Printf("warning closing connection: %v", err)
-		}
-
-		m.conn = nil
+		_ = m.Close()
 	}
 
 	m.conn, m.modelErr = sqliteOpen(m.dbPath)

@@ -3,6 +3,10 @@ package persistence
 import (
 	"database/sql"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"time"
 
 	_ "embed"
 
@@ -18,9 +22,13 @@ type Collector interface {
 }
 
 func SQLiteSnapshot(path string, collector Collector) error {
-	p := NewModel(path)
-	err := p.Error()
+	swapBack, workingPath, err := makeCopy(path)
 	if err != nil {
+		return fmt.Errorf("could not copy %q: %w", path, err)
+	}
+
+	p := NewModel(workingPath)
+	if err = p.Error(); err != nil {
 		return fmt.Errorf("initializing model: %w", err)
 	}
 
@@ -46,7 +54,41 @@ func SQLiteSnapshot(path string, collector Collector) error {
 		}
 	}
 
-	return nil
+	if err = p.Close(); err != nil {
+		return nil
+	}
+
+	return swapBack()
+}
+
+func makeCopy(path string) (func() error, string, error) {
+	workingPath := fmt.Sprintf("%s.%d", path, time.Now().UnixMilli())
+
+	fdsrc, err := os.Open(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("error opening %q to read: %w", path, err)
+	}
+
+	defer fdsrc.Close()
+
+	fddest, err := os.Create(workingPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("error creating %q to write: %w", workingPath, err)
+	}
+
+	defer fddest.Close()
+
+	if _, err = io.Copy(fddest, fdsrc); err != nil {
+		return nil, "", fmt.Errorf("error copying %q to %q: %w", path, workingPath, err)
+	}
+
+	return func() error {
+		if err := os.Rename(path, path+".bak"); err != nil {
+			log.Printf("error keeping backup: %v", err)
+		}
+
+		return os.Rename(workingPath, path)
+	}, workingPath, nil
 }
 
 //go:embed schema.sql
