@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/jw4/ignitia.go/pkg/model"
 )
@@ -120,6 +121,8 @@ func ToAssignment(raw map[string]interface{}) (*model.Assignment, error) { // no
 	}
 
 	assignment.Status = status
+
+	assignment.AsOf = time.Now().In(time.UTC).Format(time.RFC3339)
 
 	return assignment, nil
 }

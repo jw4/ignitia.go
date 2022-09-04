@@ -6,16 +6,16 @@ import (
 )
 
 type Assignment struct {
-	ID        int
-	Unit      int
-	Title     string
-	Type      string
-	Progress  int
-	Due       string
-	Completed string
-	Score     int
-	Status    string
-	AsOf      string
+	ID        int    `json:"id"`
+	Unit      int    `json:"unit"`
+	Title     string `json:"title"`
+	Type      string `json:"type"`
+	Progress  int    `json:"progress"`
+	Due       string `json:"due"`
+	Completed string `json:"completed"`
+	Score     int    `json:"score"`
+	Status    string `json:"status"`
+	AsOf      string `json:"as_of"`
 }
 
 func (a *Assignment) String() string {

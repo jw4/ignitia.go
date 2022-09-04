@@ -10,14 +10,21 @@ import (
 
 	"github.com/jw4/ignitia.go/pkg/collect"
 	"github.com/jw4/ignitia.go/pkg/model"
-	"github.com/jw4/ignitia.go/pkg/model/persistence"
 	"github.com/jw4/ignitia.go/pkg/web"
+
+	_ "github.com/jw4/ignitia.go/pkg/model/persistence"
 )
 
 var version = "dev"
 
 func main() {
-	ses := persistence.NewModel(os.Getenv("IGNITIA_DB"))
+	ses := model.New(os.Getenv("IGNITIA_DB"))
+	if ses == nil {
+		fmt.Fprintf(os.Stderr, "unable to open model for %q\n", os.Getenv("IGNITIA_DB"))
+		doHelp()
+		os.Exit(1)
+	}
+
 	opts := []web.Option{
 		web.Assets(os.Getenv("PUBLIC_ASSETS")),
 		web.Templates(os.Getenv("TEMPLATES")),
@@ -39,8 +46,7 @@ func main() {
 	case "overdue":
 		doPrint(webSession, isOverdue)
 	case "snapshot":
-		doSnapshot(
-			os.Getenv("IGNITIA_DB"),
+		doSnapshot(ses,
 			collect.NewSession(
 				os.Getenv("IGNITIA_BASE_URL"),
 				os.Getenv("IGNITIA_USERNAME"),
@@ -89,8 +95,8 @@ func doPrint(session *web.Session, with func(model.Assignment) bool) {
 	print(filter(session.Students, with), os.Stdout)
 }
 
-func doSnapshot(dbName string, ses *collect.Session) {
-	if err := persistence.SQLiteSnapshot(dbName, ses); err != nil {
+func doSnapshot(writer model.Write, reader model.Read) {
+	if err := writer.Save(reader); err != nil {
 		fmt.Fprintf(os.Stderr, "error snapshotting: %v\n", err)
 		os.Exit(-1)
 	}
