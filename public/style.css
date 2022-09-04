@@ -17,7 +17,7 @@
 }
 
 body {
-    margin: 1em;
+    margin: 0;
     font-family: Helvetica, sans-serif;
     font-size: larger;
     color: var(--main-fg-color);
@@ -25,8 +25,8 @@ body {
 }
 
 #main {
-    width: 90%;
-    margin: 5em auto;
+    width: 95%;
+    margin: 1em auto;
 }
 
 h1,
@@ -48,7 +48,7 @@ h6 {
 
 .report {
     width: 90%;
-    margin: 5em auto;
+    margin: 1em auto;
 }
 
 section[data-num-courses-incomplete="0"].student {
