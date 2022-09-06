@@ -1,9 +1,22 @@
 package model
 
+import "sort"
+
 type Student struct {
-	ID          int      `json:"id"`
-	DisplayName string   `json:"displayName"`
-	Courses     []Course `json:"-"`
+	ID          int             `json:"id"`
+	DisplayName string          `json:"displayName"`
+	Courses     map[int]*Course `json:"courses"`
+}
+
+func (s *Student) SortedCourses() []*Course {
+	var courses []*Course
+	for _, course := range s.Courses {
+		courses = append(courses, course)
+	}
+
+	sort.Slice(courses, func(x, y int) bool { return courses[x].Title < courses[y].Title })
+
+	return courses
 }
 
 func (s *Student) IncompleteCourses() int {

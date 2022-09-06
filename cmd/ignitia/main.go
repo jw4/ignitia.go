@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -18,8 +17,8 @@ import (
 var version = "dev"
 
 func main() {
-	ses := model.New(os.Getenv("IGNITIA_DB"))
-	if ses == nil {
+	mod := model.New(os.Getenv("IGNITIA_DB"))
+	if mod == nil {
 		fmt.Fprintf(os.Stderr, "unable to open model for %q\n", os.Getenv("IGNITIA_DB"))
 		doHelp()
 		os.Exit(1)
@@ -29,7 +28,7 @@ func main() {
 		web.Assets(os.Getenv("PUBLIC_ASSETS")),
 		web.Templates(os.Getenv("TEMPLATES")),
 	}
-	webSession := web.NewSession(ses, opts...)
+	webSession := web.NewSession(mod, opts...)
 
 	action := "help"
 	if len(os.Args) > 1 {
@@ -42,11 +41,11 @@ func main() {
 	case "html":
 		doHTML(webSession)
 	case "due":
-		doPrint(webSession, isDue)
+		doPrint(mod, isDue)
 	case "overdue":
-		doPrint(webSession, isOverdue)
+		doPrint(mod, isOverdue)
 	case "snapshot":
-		doSnapshot(ses,
+		doSnapshot(mod,
 			collect.NewSession(
 				os.Getenv("IGNITIA_BASE_URL"),
 				os.Getenv("IGNITIA_USERNAME"),
@@ -70,7 +69,7 @@ func doServe(session *web.Session) {
 }
 
 func doHTML(session *web.Session) {
-	session.DebugWriter = ioutil.Discard
+	session.DebugWriter = io.Discard
 
 	if err := session.Refresh(); err != nil {
 		fmt.Fprintf(os.Stderr, "error refreshing: %v\n", err)
@@ -83,16 +82,8 @@ func doHTML(session *web.Session) {
 	}
 }
 
-func doPrint(session *web.Session, with func(model.Assignment) bool) {
-	session.DebugWriter = ioutil.Discard
-	session.DebugWriter = os.Stderr
-
-	if err := session.Refresh(); err != nil {
-		fmt.Fprintf(os.Stderr, "error refreshing: %v\n", err)
-		os.Exit(-1)
-	}
-
-	print(filter(session.Students, with), os.Stdout)
+func doPrint(mod model.Read, with func(*model.Assignment) bool) {
+	print(filter(mod.Data(), with), os.Stdout)
 }
 
 func doSnapshot(writer model.Write, reader model.Read) {
@@ -110,43 +101,43 @@ func print(students []model.Student, out io.Writer) {
 
 		fmt.Fprintf(out, "\nStudent: %s\n", html.UnescapeString(student.DisplayName))
 
-		for _, course := range student.Courses {
+		for _, course := range student.SortedCourses() {
 			if len(course.Assignments) == 0 {
 				continue
 			}
 
 			fmt.Fprintf(out, "\n  Course: %s; %d assignments\n", course.Title, len(course.Assignments))
 
-			for _, assignment := range course.Assignments {
+			for _, assignment := range course.SortedAssignments() {
 				fmt.Fprintf(out, "    Assignment: %s\n", assignment.String())
 			}
 		}
 	}
 }
 
-func isDue(a model.Assignment) bool     { return a.IsDue() }
-func isOverdue(a model.Assignment) bool { return a.IsOverdue() }
+func isDue(a *model.Assignment) bool     { return a.IsDue() }
+func isOverdue(a *model.Assignment) bool { return a.IsOverdue() }
 
-func filter(students []model.Student, with func(model.Assignment) bool) []model.Student {
+func filter(data model.Data, with func(*model.Assignment) bool) []model.Student {
 	var filtered []model.Student
-	for _, student := range students {
-		var filteredCourses []model.Course
+	for _, student := range data.SortedStudents() {
+		filteredCourses := map[int]*model.Course{}
 
 		for _, course := range student.Courses {
-			var filteredAssignments []model.Assignment
+			filteredAssignments := map[int]*model.Assignment{}
 
 			for _, assignment := range course.Assignments {
 				if with(assignment) {
-					filteredAssignments = append(filteredAssignments, assignment)
+					filteredAssignments[assignment.ID] = assignment
 				}
 			}
 
 			if len(filteredAssignments) > 0 {
-				filteredCourses = append(filteredCourses, model.Course{
+				filteredCourses[course.ID] = &model.Course{
 					ID:          course.ID,
 					Title:       course.Title,
 					Assignments: filteredAssignments,
-				})
+				}
 			}
 		}
 

@@ -7,6 +7,8 @@ import (
 
 type Assignment struct {
 	ID        int    `json:"id"`
+	CourseID  int    `json:"course_id"`
+	StudentID int    `json:"student_id"`
 	Unit      int    `json:"unit"`
 	Title     string `json:"title"`
 	Type      string `json:"type"`
@@ -15,14 +17,12 @@ type Assignment struct {
 	Completed string `json:"completed"`
 	Score     int    `json:"score"`
 	Status    string `json:"status"`
-	AsOf      string `json:"as_of"`
 }
 
 func (a *Assignment) String() string {
 	return fmt.Sprintf("Unit: %d, %s, %q, Due: %s, Status: %s", a.Unit, a.Type, a.Title, a.Due, a.Status)
 }
 
-func (a *Assignment) AsOfTime() time.Time     { return parseTime(a.AsOf) }
 func (a *Assignment) CompleteDate() time.Time { return parseDate(a.Completed) }
 func (a *Assignment) DueDate() time.Time      { return parseDate(a.Due) }
 
@@ -115,17 +115,6 @@ func nextWeek() time.Time {
 func parseDate(s string) time.Time {
 	for _, fmt := range []string{"2006-01-02", "01/02/2006"} {
 		dt, err := time.ParseInLocation(fmt, s, time.Local)
-		if err == nil {
-			return dt
-		}
-	}
-
-	return time.Time{}
-}
-
-func parseTime(s string) time.Time {
-	for _, fmt := range []string{"2006-01-02 15:04:05", time.RFC3339, time.RFC822, "2006-01-02", "01/02/2006"} {
-		dt, err := time.ParseInLocation(fmt, s, time.UTC)
 		if err == nil {
 			return dt
 		}

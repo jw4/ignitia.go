@@ -4,21 +4,21 @@
 {{ define "report" }}
 {{ template "header" . }}
 <div class="report" data-num-students="{{ len .Students }}">
-  <div class="students">{{ range .Students }}{{ $student_id := .ID }}
+  <div class="students">{{ range .SortedStudents }}{{ $student_id := .ID }}
     <section id="student_{{ $student_id }}" class="student" data-num-courses="{{ len .Courses }}" data-num-courses-incomplete="{{ .IncompleteCourses }}">
       <h2>{{ .DisplayName | rawhtml }}</h2>
       <div class="summary">{{ with .OverdueAssignments}}
         <p class="overdue">Total {{ . }} past due</p>{{ end }}{{ with .DueAssignments}}
         <p class="due">Total {{ . }} due today</p>{{ end }}
       </div>
-      <div class="courses">{{ range .Courses }}{{ $course_id := .ID }}
+      <div class="courses">{{ range .SortedCourses }}{{ $course_id := .ID }}
         <section id="course_{{ $student_id }}_{{ $course_id }}" class="course" data-num-assignments="{{ len .Assignments }}" data-num-assignments-incomplete="{{ .IncompleteAssignments }}">
           <h3>{{ .Title }}</h3>
           <div class="summary">{{ with .OverdueAssignments}}
             <p class="overdue">{{ . }} past due</p>{{ end }}{{ with .DueAssignments}}
             <p class="due">{{ . }} due today</p>{{ end }}
           </div>
-          <div class="assignments">{{ range .Assignments }}{{ $assignment_id := .ID }}
+          <div class="assignments">{{ range .SortedAssignments }}{{ $assignment_id := .ID }}
             <section id="assignment_{{ $student_id }}_{{ $course_id }}_{{ $assignment_id }}" class="{{ template `assignment_classes` .}}">
               <h4 class="unit">Unit {{ .Unit }}</h4>
               <h4 class="title">{{ .Title }}</h4>

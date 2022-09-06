@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/safehtml"
 
@@ -48,19 +47,16 @@ func NewSession(collector Collector, opts ...Option) *Session {
 
 type Collector interface {
 	Reset() error
-	Error() error
-	Students() []model.Student
-	Courses(model.Student) []model.Course
-	Assignments(model.Student, model.Course) []model.Assignment
+	Data() model.Data
 }
 
 // Session wraps a web session to ignitia.
 type Session struct {
 	DebugWriter io.Writer
-	Error       error
-	Students    []model.Student
 
 	coll Collector
+
+	data model.Data
 
 	assets    string
 	templates string
@@ -79,22 +75,15 @@ func (s *Session) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 // Refresh updates the cached data.
 func (s *Session) Refresh() error {
-	s.Students = nil
-	s.Error = s.coll.Reset()
+	var err error
 
-	for _, student := range s.coll.Students() {
-		var courses []model.Course
-
-		for _, course := range s.coll.Courses(student) {
-			course.Assignments = s.coll.Assignments(student, course)
-			courses = append(courses, course)
-		}
-
-		student.Courses = courses
-		s.Students = append(s.Students, student)
+	if err = s.coll.Reset(); err != nil {
+		return err
 	}
 
-	return s.coll.Error()
+	s.data = s.coll.Data()
+
+	return nil
 }
 
 // RenderHTML writes the report page out.
@@ -105,30 +94,11 @@ func (s *Session) RenderHTML(out io.Writer) error {
 		return fmt.Errorf("parsing %q: %v", pat, err)
 	}
 
-	if err := tmpl.Execute(out, s); err != nil {
+	if err := tmpl.Execute(out, &s.data); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (s *Session) LastUpdate() string {
-	var latest time.Time
-	for _, student := range s.Students {
-		for _, course := range student.Courses {
-			for _, assignment := range course.Assignments {
-				if assignment.AsOfTime().After(latest) {
-					latest = assignment.AsOfTime()
-				}
-			}
-		}
-	}
-
-	if latest.IsZero() {
-		return "-n/a-"
-	}
-
-	return latest.In(time.Local).Format(time.RFC1123)
 }
 
 func (s *Session) renderIndex(writer http.ResponseWriter, _ *http.Request) {
@@ -139,7 +109,7 @@ func (s *Session) renderIndex(writer http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	if err := tmpl.Execute(writer, s); err != nil {
+	if err := tmpl.Execute(writer, &s.data); err != nil {
 		s.renderError(writer, fmt.Errorf("executing template: %v", err))
 		return
 	}

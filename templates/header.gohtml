@@ -13,5 +13,7 @@
 </head>
 
 <body>
-  <section id="main">{{ with .Error }}
-    <pre class="error">{{ . }}</pre>{{ end }}{{ end }}
+<section id="main">{{ with .Errors }}
+  <pre class="error">{{ range . }}
+    {{ . }}{{ end }}
+  </pre>{{ end }}{{ end }}

@@ -1,6 +1,10 @@
 package model
 
-import "log"
+import (
+	"log"
+	"sort"
+	"time"
+)
 
 var handlers = map[string]func(string) (func(string) Full, bool){}
 
@@ -20,16 +24,11 @@ func New(conn string) Full {
 }
 
 type Read interface {
-	Students() []Student
-	Courses(Student) []Course
-	Assignments(Student, Course) []Assignment
+	Data() Data
 }
 
 type Write interface {
 	Save(Read) error
-	SaveStudents([]Student) error
-	SaveCourses(Student, []Course) error
-	SaveAssignments(Student, Course, []Assignment) error
 }
 
 type Full interface {
@@ -37,4 +36,29 @@ type Full interface {
 	Write
 	Reset() error
 	Error() error
+}
+
+type Data struct {
+	Students map[int]*Student `json:"students"`
+	Errors   []error          `json:"errors"`
+	AsOf     time.Time        `json:"as_of"`
+}
+
+func (d *Data) SortedStudents() []*Student {
+	var students []*Student
+	for _, student := range d.Students {
+		students = append(students, student)
+	}
+
+	sort.Slice(students, func(x, y int) bool { return students[x].DisplayName < students[y].DisplayName })
+
+	return students
+}
+
+func (d *Data) LastUpdate() string {
+	if d.AsOf.IsZero() {
+		return "- n/a -"
+	}
+
+	return d.AsOf.Format(time.RFC1123)
 }

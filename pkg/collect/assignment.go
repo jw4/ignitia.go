@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/jw4/ignitia.go/pkg/model"
 )
@@ -122,8 +121,6 @@ func ToAssignment(raw map[string]interface{}) (*model.Assignment, error) { // no
 
 	assignment.Status = status
 
-	assignment.AsOf = time.Now().In(time.UTC).Format(time.RFC3339)
-
 	return assignment, nil
 }
 
@@ -131,7 +128,7 @@ type assignmentResponseHelper struct {
 	Page        int
 	Total       int
 	Records     int
-	Assignments []model.Assignment
+	Assignments []*model.Assignment
 }
 
 func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
@@ -178,7 +175,7 @@ func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
 				len(rows), ErrMarshal)
 		}
 	case []interface{}:
-		assignments := map[int]model.Assignment{}
+		assignments := map[int]*model.Assignment{}
 
 		for _, v := range rows {
 			switch cell := v.(type) {
@@ -188,7 +185,7 @@ func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
 					return err
 				}
 
-				assignments[assignment.ID] = *assignment
+				assignments[assignment.ID] = assignment
 			default:
 				return fmt.Errorf(
 					"unexpected type for cells: got %T, expected map[string]interface{} [%w]",
@@ -196,7 +193,7 @@ func (a *assignmentResponseHelper) UnmarshalJSON(b []byte) error {
 			}
 		}
 
-		list := make([]model.Assignment, 0, len(assignments))
+		list := make([]*model.Assignment, 0, len(assignments))
 		for _, v := range assignments {
 			list = append(list, v)
 		}

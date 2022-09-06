@@ -2,11 +2,13 @@ package persistence
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
+	"time"
+
+	multierror "github.com/hashicorp/go-multierror"
+	"github.com/nats-io/nats.go"
 
 	"github.com/jw4/ignitia.go/pkg/model"
-	"github.com/nats-io/nats.go"
 )
 
 func init() {
@@ -24,249 +26,117 @@ func NewNATSModel(conn string) model.Full {
 }
 
 type NATSModel struct {
-	modelErr error
-	connURL  string
+	connURL string
 
 	conn *nats.Conn
 	js   nats.JetStreamContext
 
-	studentBucket    nats.KeyValue
-	courseBucket     nats.KeyValue
-	assignmentBucket nats.KeyValue
+	ignitiaBucket nats.KeyValue
+
+	data model.Data
+}
+
+func (n *NATSModel) refresh() error {
+	var (
+		err     error
+		entry   nats.KeyValueEntry
+		working model.Data
+	)
+
+	if n.ignitiaBucket == nil {
+		if n.ignitiaBucket, err = n.openOrCreate(ignitiaBucket); err != nil {
+			return err
+		}
+	}
+
+	if entry, err = n.ignitiaBucket.Get(ignitiaKey); err != nil {
+		return err
+	}
+
+	if err = json.Unmarshal(entry.Value(), &working); err != nil {
+		return err
+	}
+
+	n.data = working
+
+	return nil
+}
+
+func (n *NATSModel) Data() model.Data {
+	if err := n.refresh(); err != nil {
+		return model.Data{Errors: []error{err}, AsOf: time.Now()}
+	}
+
+	return n.data
 }
 
 func (n *NATSModel) Students() []model.Student {
-	var (
-		err      error
-		students []model.Student
-	)
-
-	if n.studentBucket == nil {
-		if n.studentBucket, err = n.openOrCreate(studentBucket); err != nil {
-			n.modelErr = err
-			return nil
-		}
-	}
-
-	studentIDs, err := n.studentBucket.Keys()
-	if err != nil {
-		n.modelErr = err
+	if err := n.refresh(); err != nil {
 		return nil
 	}
 
-	for _, id := range studentIDs {
-		v, err := n.studentBucket.Get(id)
-		if err != nil {
-			n.modelErr = err
-			return nil
-		}
-
-		var student model.Student
-		if err = unmarshalStudent(v.Value(), &student); err != nil {
-			n.modelErr = fmt.Errorf("unmarshaling student (%s), %w", v.Value(), err)
-			return nil
-		}
-
-		student.Courses = n.Courses(student)
-
-		students = append(students, student)
+	var students []model.Student
+	for _, student := range n.data.Students {
+		students = append(students, *student)
 	}
 
 	return students
 }
 
 func (n *NATSModel) Courses(student model.Student) []model.Course {
-	var (
-		err     error
-		courses []model.Course
-	)
-
-	if n.courseBucket == nil {
-		if n.courseBucket, err = n.openOrCreate(courseBucket); err != nil {
-			n.modelErr = err
-			return nil
-		}
-	}
-
-	courseIDs, err := n.courseBucket.Keys()
-	if err != nil {
-		n.modelErr = err
+	if err := n.refresh(); err != nil {
 		return nil
 	}
 
-	idPrefix := fmt.Sprintf("%d.", student.ID)
+	s, ok := n.data.Students[student.ID]
+	if !ok {
+		return nil
+	}
 
-	for _, id := range courseIDs {
-		if !strings.HasPrefix(id, idPrefix) {
-			continue
-		}
-
-		v, err := n.courseBucket.Get(id)
-		if err != nil {
-			n.modelErr = err
-			return nil
-		}
-
-		var course model.Course
-		if err = unmarshalCourse(v.Value(), &course); err != nil {
-			n.modelErr = fmt.Errorf("unmarshaling course (%s), %w", v.Value(), err)
-			return nil
-		}
-
-		course.Assignments = n.Assignments(student, course)
-
-		courses = append(courses, course)
+	var courses []model.Course
+	for _, course := range s.Courses {
+		courses = append(courses, *course)
 	}
 
 	return courses
 }
 
 func (n *NATSModel) Assignments(student model.Student, course model.Course) []model.Assignment {
-	var (
-		err         error
-		assignments []model.Assignment
-	)
-
-	if n.assignmentBucket == nil {
-		if n.assignmentBucket, err = n.openOrCreate(assignmentBucket); err != nil {
-			n.modelErr = err
-			return nil
-		}
-	}
-
-	assignmentIDs, err := n.assignmentBucket.Keys()
-	if err != nil {
-		n.modelErr = err
+	if err := n.refresh(); err != nil {
 		return nil
 	}
 
-	idPrefix := fmt.Sprintf("%d.%d.", student.ID, course.ID)
+	c, ok := n.data.Students[student.ID].Courses[course.ID]
+	if !ok {
+		return nil
+	}
 
-	for _, id := range assignmentIDs {
-		if !strings.HasPrefix(id, idPrefix) {
-			continue
-		}
-
-		v, err := n.assignmentBucket.Get(id)
-		if err != nil {
-			n.modelErr = err
-			return nil
-		}
-
-		var assignment model.Assignment
-		if err = unmarshalAssignment(v.Value(), &assignment); err != nil {
-			n.modelErr = fmt.Errorf("unmarshaling assignment (%s), %w", v.Value(), err)
-			return nil
-		}
-
-		assignments = append(assignments, assignment)
+	var assignments []model.Assignment
+	for _, assignment := range c.Assignments {
+		assignments = append(assignments, *assignment)
 	}
 
 	return assignments
 }
 
 func (n *NATSModel) Save(reader model.Read) error {
-	var err error
-
-	students := reader.Students()
-
-	if err = n.SaveStudents(students); err != nil {
-		return fmt.Errorf("saving students: %w", err)
-	}
-
-	for _, student := range students {
-		courses := reader.Courses(student)
-
-		if err = n.SaveCourses(student, courses); err != nil {
-			return fmt.Errorf("saving courses: %w", err)
-		}
-
-		for _, course := range courses {
-			assignments := reader.Assignments(student, course)
-
-			if err = n.SaveAssignments(student, course, assignments); err != nil {
-				return fmt.Errorf("saving assignments: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (n *NATSModel) SaveStudents(students []model.Student) error {
 	var (
 		err  error
 		data []byte
 	)
 
-	if n.studentBucket == nil {
-		if n.studentBucket, err = n.openOrCreate(studentBucket); err != nil {
+	if n.ignitiaBucket == nil {
+		if n.ignitiaBucket, err = n.openOrCreate(ignitiaBucket); err != nil {
 			return err
 		}
 	}
 
-	for _, student := range students {
-		if data, err = marshal(student); err != nil {
-			return err
-		}
-
-		if err = n.save(n.studentBucket, fmt.Sprintf("%d", student.ID), data); err != nil {
-			return err
-		}
+	if data, err = json.Marshal(reader.Data()); err != nil {
+		return err
 	}
 
-	return n.modelErr
-}
-
-func (n *NATSModel) SaveCourses(student model.Student, courses []model.Course) error {
-	var (
-		err  error
-		data []byte
-	)
-
-	if n.courseBucket == nil {
-		if n.courseBucket, err = n.openOrCreate(courseBucket); err != nil {
-			return err
-		}
-	}
-
-	for _, course := range courses {
-		if data, err = marshal(course); err != nil {
-			return err
-		}
-
-		if err = n.save(n.courseBucket, fmt.Sprintf("%d.%d", student.ID, course.ID), data); err != nil {
-			return err
-		}
-	}
-
-	return n.modelErr
-}
-
-func (n *NATSModel) SaveAssignments(student model.Student, course model.Course, assignments []model.Assignment) error {
-	var (
-		err  error
-		data []byte
-	)
-
-	if n.assignmentBucket == nil {
-		if n.assignmentBucket, err = n.openOrCreate(assignmentBucket); err != nil {
-			return err
-		}
-	}
-
-	prefix := fmt.Sprintf("%d.%d.", student.ID, course.ID)
-	for _, assignment := range assignments {
-		if data, err = marshal(assignment); err != nil {
-			return err
-		}
-
-		if err = n.save(n.assignmentBucket, fmt.Sprintf("%s%d", prefix, assignment.ID), data); err != nil {
-			return err
-		}
-	}
-
-	return n.modelErr
+	_, err = n.ignitiaBucket.Put(ignitiaKey, data)
+	return err
 }
 
 func (n *NATSModel) Close() error {
@@ -278,28 +148,35 @@ func (n *NATSModel) Close() error {
 }
 
 func (n *NATSModel) Reset() error {
+	var err error
+
 	if n.conn != nil {
-		if n.modelErr == nil {
-			return nil
+		if err = n.Close(); err != nil {
+			return err
 		}
-
-		_ = n.Close()
 	}
 
-	n.conn, n.modelErr = nats.Connect(n.connURL)
-	if n.modelErr == nil {
-		n.js, n.modelErr = n.conn.JetStream()
+	n.conn, err = nats.Connect(n.connURL)
+	if err == nil {
+		n.js, err = n.conn.JetStream()
 	}
 
-	return n.modelErr
+	n.data = model.Data{AsOf: time.Now()}
+
+	return err
 }
 
-func (n *NATSModel) Error() error { return n.modelErr }
+func (n *NATSModel) Error() error {
+	if len(n.data.Errors) > 0 {
+		return multierror.Append(nil, n.data.Errors...)
+	}
+
+	return nil
+}
 
 const (
-	studentBucket    = "ignitia_students"
-	courseBucket     = "ignitia_courses"
-	assignmentBucket = "ignitia_assignments"
+	ignitiaBucket = "ignitia"
+	ignitiaKey    = "simeon"
 )
 
 func (n *NATSModel) openOrCreate(bucket string) (nats.KeyValue, error) {
@@ -316,33 +193,4 @@ func (n *NATSModel) openOrCreate(bucket string) (nats.KeyValue, error) {
 	}
 
 	return kv, nil
-}
-
-func (n *NATSModel) save(bucket nats.KeyValue, key string, data []byte) error {
-	_, n.modelErr = bucket.Put(key, data)
-	return n.modelErr
-}
-
-func (n *NATSModel) get(bucket nats.KeyValue, key string) ([]byte, error) {
-	e, err := bucket.Get(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return e.Value(), nil
-}
-
-func marshal(val any) ([]byte, error) {
-	data, err := json.Marshal(val)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func unmarshalStudent(data []byte, into *model.Student) error { return json.Unmarshal(data, into) }
-func unmarshalCourse(data []byte, into *model.Course) error   { return json.Unmarshal(data, into) }
-func unmarshalAssignment(data []byte, into *model.Assignment) error {
-	return json.Unmarshal(data, into)
 }
