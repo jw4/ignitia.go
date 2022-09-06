@@ -87,6 +87,8 @@ func doPrint(mod model.Read, with func(*model.Assignment) bool) {
 }
 
 func doSnapshot(writer model.Write, reader model.Read) {
+	fmt.Fprintf(os.Stderr, "Version: %s\n", version)
+
 	if err := writer.Save(reader); err != nil {
 		fmt.Fprintf(os.Stderr, "error snapshotting: %v\n", err)
 		os.Exit(-1)

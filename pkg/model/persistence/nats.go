@@ -150,20 +150,27 @@ func (n *NATSModel) Close() error {
 func (n *NATSModel) Reset() error {
 	var err error
 
+	n.data = model.Data{AsOf: time.Now()}
+
 	if n.conn != nil {
+		if n.conn.IsConnected() {
+			return nil
+		}
+
 		if err = n.Close(); err != nil {
 			return err
 		}
 	}
 
-	n.conn, err = nats.Connect(n.connURL)
-	if err == nil {
-		n.js, err = n.conn.JetStream()
+	if n.conn, err = nats.Connect(n.connURL); err != nil {
+		return err
 	}
 
-	n.data = model.Data{AsOf: time.Now()}
+	if n.js, err = n.conn.JetStream(); err != nil {
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func (n *NATSModel) Error() error {
