@@ -1,6 +1,8 @@
 NAME=ignitia
 IMAGE=docker.w.jw4.us/$(NAME)
+
 PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
+PLATFORMS="linux/amd64,linux/arm64"
 
 ifeq ($(BUILD_VERSION),)
 	BUILD_VERSION := $(shell git describe --dirty --first-parent --always --tags)

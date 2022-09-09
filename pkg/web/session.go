@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/safehtml"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/jw4/ignitia.go/pkg/model"
 )
@@ -38,6 +40,7 @@ func NewSession(collector Collector, opts ...Option) *Session {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.Dir(ses.assets)))
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/index", ses.renderIndex)
 	mux.HandleFunc("/report", ses.renderReport)
 	ses.mux = mux
@@ -101,6 +104,14 @@ func (s *Session) RenderHTML(out io.Writer) error {
 	return nil
 }
 
+// RenderJSON writes the report out in JSON.
+func (s *Session) RenderJSON(out io.Writer) error {
+	enc := json.NewEncoder(out)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	return enc.Encode(s.data)
+}
+
 func (s *Session) renderIndex(writer http.ResponseWriter, _ *http.Request) {
 	pat := filepath.Join(s.templates, "*.gohtml")
 	tmpl, err := template.New("index").Funcs(htmlHelpers).ParseGlob(pat)
@@ -115,9 +126,19 @@ func (s *Session) renderIndex(writer http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func (s *Session) renderReport(writer http.ResponseWriter, _ *http.Request) {
+func (s *Session) renderReport(writer http.ResponseWriter, req *http.Request) {
 	if err := s.Refresh(); err != nil {
 		s.renderError(writer, err)
+		return
+	}
+
+	if should(req.FormValue("json")) {
+		writer.Header().Set("Content-Type", "application/json")
+		if err := s.RenderJSON(writer); err != nil {
+			s.renderError(writer, err)
+		}
+
+		return
 	}
 
 	if err := s.RenderHTML(writer); err != nil {
@@ -129,6 +150,19 @@ func (s *Session) renderReport(writer http.ResponseWriter, _ *http.Request) {
 func (s *Session) renderError(writer http.ResponseWriter, err error) {
 	writer.WriteHeader(http.StatusInternalServerError)
 	fmt.Fprintf(s.DebugWriter, "Error serving page: %v\n", err)
+}
+
+func should(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+
+	switch s[0] {
+	case '0', 'f', 'F', 'n', 'N', 'x', 'X':
+		return false
+	default:
+		return true
+	}
 }
 
 func tolower(s string) string {
