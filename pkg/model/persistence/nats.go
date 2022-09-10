@@ -62,12 +62,12 @@ func (n *NATSModel) refresh() error {
 	return nil
 }
 
-func (n *NATSModel) Data() model.Data {
+func (n *NATSModel) Data() (model.Data, error) {
 	if err := n.refresh(); err != nil {
-		return model.Data{Errors: []error{err}, AsOf: time.Now()}
+		return model.Data{Errors: []error{err}, AsOf: time.Now()}, err
 	}
 
-	return n.data
+	return n.data, nil
 }
 
 func (n *NATSModel) Students() []model.Student {
@@ -122,6 +122,7 @@ func (n *NATSModel) Assignments(student model.Student, course model.Course) []mo
 func (n *NATSModel) Save(reader model.Read) error {
 	var (
 		err  error
+		s    model.Data
 		data []byte
 	)
 
@@ -131,7 +132,11 @@ func (n *NATSModel) Save(reader model.Read) error {
 		}
 	}
 
-	if data, err = json.Marshal(reader.Data()); err != nil {
+	if s, err = reader.Data(); err != nil {
+		return err
+	}
+
+	if data, err = json.Marshal(s); err != nil {
 		return err
 	}
 

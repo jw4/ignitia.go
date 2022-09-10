@@ -44,16 +44,31 @@ func NewSession(baseURL, username, password string) *Session {
 func (s *Session) Error() error { return s.errSession }
 func (s *Session) Reset()       { s.collector = nil }
 
-func (s *Session) Data() model.Data {
+func (s *Session) Data() (model.Data, error) {
 	data := model.Data{AsOf: time.Now(), Students: map[int]*model.Student{}}
 
-	for _, student := range s.Students() {
+	students, err := s.Students()
+	if err != nil {
+		return data, err
+	}
+
+	for _, student := range students {
 		student.Courses = map[int]*model.Course{}
 
-		for _, course := range s.Courses(student) {
+		courses, err := s.Courses(student)
+		if err != nil {
+			return data, err
+		}
+
+		for _, course := range courses {
 			course.Assignments = map[int]*model.Assignment{}
 
-			for _, assignment := range s.Assignments(student, course) {
+			assignments, err := s.Assignments(student, course)
+			if err != nil {
+				return data, err
+			}
+
+			for _, assignment := range assignments {
 				course.Assignments[assignment.ID] = assignment
 			}
 
@@ -63,12 +78,12 @@ func (s *Session) Data() model.Data {
 		data.Students[student.ID] = student
 	}
 
-	return data
+	return data, nil
 }
 
-func (s *Session) Students() []*model.Student {
+func (s *Session) Students() ([]*model.Student, error) {
 	if err := s.init(); err != nil {
-		return nil
+		return nil, err
 	}
 
 	var students []*model.Student
@@ -87,12 +102,12 @@ func (s *Session) Students() []*model.Student {
 
 	s.getAndUpdate(fmt.Sprintf("%s/owsoo/parent/populateStudents?_=%d", s.baseURL, ts()), loadStudentsFromJSON)
 
-	return students
+	return students, nil
 }
 
-func (s *Session) Courses(student *model.Student) []*model.Course {
+func (s *Session) Courses(student *model.Student) ([]*model.Course, error) {
 	if err := s.init(); err != nil {
-		return nil
+		return nil, err
 	}
 
 	var courses []*model.Course
@@ -117,12 +132,12 @@ func (s *Session) Courses(student *model.Student) []*model.Course {
 		fmt.Sprintf("%s/owsoo/parent/populateCourses?student_id=%d&_=%d", s.baseURL, student.ID, ts()),
 		loadCoursesFromJSON)
 
-	return courses
+	return courses, s.errSession
 }
 
-func (s *Session) Assignments(student *model.Student, course *model.Course) []*model.Assignment {
+func (s *Session) Assignments(student *model.Student, course *model.Course) ([]*model.Assignment, error) {
 	if err := s.init(); err != nil {
-		return nil
+		return nil, err
 	}
 
 	var helper assignmentResponseHelper
@@ -159,7 +174,7 @@ func (s *Session) Assignments(student *model.Student, course *model.Course) []*m
 		fmt.Sprintf("%s/owsoo/parent/listAssignmentsByCourse", s.baseURL),
 		data, loadAssignmentsFromJSON)
 
-	return helper.Assignments
+	return helper.Assignments, s.errSession
 }
 
 func (s *Session) init() error {
@@ -180,10 +195,11 @@ func (s *Session) init() error {
 	s.collector.OnHTML(".login-error", s.loginError)
 
 	if err := s.collector.Visit(s.baseURL); err != nil {
-		return err
+		s.errSession = err
+		s.collector = nil
 	}
 
-	return nil
+	return s.errSession
 }
 
 func (s *Session) login(element *colly.HTMLElement) {

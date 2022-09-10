@@ -83,7 +83,12 @@ func doHTML(session *web.Session) {
 }
 
 func doPrint(mod model.Read, with func(*model.Assignment) bool) {
-	print(filter(mod.Data(), with), os.Stdout)
+	data, err := mod.Data()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error printing: %v\n", err)
+	}
+
+	print(filter(data, with), os.Stdout)
 }
 
 func doSnapshot(writer model.Write, reader model.Read) {

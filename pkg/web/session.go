@@ -50,7 +50,7 @@ func NewSession(collector Collector, opts ...Option) *Session {
 
 type Collector interface {
 	Reset() error
-	Data() model.Data
+	Data() (model.Data, error)
 }
 
 // Session wraps a web session to ignitia.
@@ -84,9 +84,9 @@ func (s *Session) Refresh() error {
 		return err
 	}
 
-	s.data = s.coll.Data()
+	s.data, err = s.coll.Data()
 
-	return nil
+	return err
 }
 
 // RenderHTML writes the report page out.

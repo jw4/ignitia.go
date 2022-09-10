@@ -24,7 +24,7 @@ func New(conn string) Full {
 }
 
 type Read interface {
-	Data() Data
+	Data() (Data, error)
 }
 
 type Write interface {
